@@ -1,17 +1,44 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 
 type Role = "student" | "mentor";
 
 export default function Home() {
-  const [isAuthed, setIsAuthed] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<Role>("student");
 
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session ?? null);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const isAuthed = !!session;
+
   const greeting = useMemo(() => {
-    if (!isAuthed) return "Hello, you’re logged out (fake auth for now).";
-    return `Hello, you’re logged in as a ${role} (fake auth for now).`;
+    if (!isAuthed) return "Hello, you’re logged out.";
+    return `Hello, you’re logged in as a ${role}.`;
   }, [isAuthed, role]);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+  }
 
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
@@ -26,20 +53,30 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50"
-              onClick={() => setIsAuthed((v) => !v)}
-              aria-label="Toggle fake auth state"
-            >
-              {isAuthed ? "Log out" : "Log in"}
-            </button>
+            {isAuthed ? (
+              <button
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50"
+                onClick={handleSignOut}
+                aria-label="Sign out"
+              >
+                Log out
+              </button>
+            ) : (
+              <Link
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50"
+                href="/auth"
+                aria-label="Go to sign in"
+              >
+                Log in
+              </Link>
+            )}
 
             <select
               className="rounded-xl border px-3 py-2 text-sm bg-white disabled:opacity-50"
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}
               disabled={!isAuthed}
-              aria-label="Select fake role"
+              aria-label="Select role (temporary)"
             >
               <option value="student">Student</option>
               <option value="mentor">Mentor</option>
