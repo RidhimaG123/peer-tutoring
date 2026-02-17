@@ -9,18 +9,37 @@ type Role = "student" | "mentor";
 
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<Role>("student");
+  const [role, setRole] = useState<Role | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
+    async function loadRole(userId: string) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+      if (!mounted) return;
+      if (error) {
+        setRole(null);
+        return;
+      }
+      setRole((data?.role as Role) ?? null);
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      setSession(data.session ?? null);
+      const s = data.session ?? null;
+      setSession(s);
+      if (s?.user?.id) loadRole(s.user.id);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      if (newSession?.user?.id) loadRole(newSession.user.id);
+      else setRole(null);
     });
 
     return () => {
@@ -33,6 +52,7 @@ export default function Home() {
 
   const greeting = useMemo(() => {
     if (!isAuthed) return "Hello, you’re logged out.";
+    if (!role) return "Hello, you’re logged in.";
     return `Hello, you’re logged in as a ${role}.`;
   }, [isAuthed, role]);
 
@@ -73,7 +93,7 @@ export default function Home() {
 
             {isAuthed && (
               <span className="text-xs text-zinc-600 px-2">
-                Role system coming in next step
+                {role ? `Role: ${role}` : "Loading role…"}
               </span>
             )}
           </div>
@@ -86,6 +106,17 @@ export default function Home() {
             <div className="text-base font-semibold">Status</div>
             <p className="mt-2 text-sm text-zinc-700">{greeting}</p>
 
+
+            {isAuthed && role && (
+              <div className="mt-3">
+                <Link
+                  className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-800"
+                  href={role === "mentor" ? "/mentor" : "/student"}
+                >
+                  Go to {role === "mentor" ? "Mentor" : "Student"} Dashboard
+                </Link>
+              </div>
+            )}
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border p-4">
                 <div className="text-sm font-semibold">Today’s Match</div>
