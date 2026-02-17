@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 
-type Role = "student" | "mentor";
+type Role = "student" | "mentor" | "admin";
 
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
@@ -111,9 +111,15 @@ export default function Home() {
               <div className="mt-3">
                 <Link
                   className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-800"
-                  href={role === "mentor" ? "/mentor" : "/student"}
+                  href={
+                    role === "admin"
+                      ? "/admin"
+                      : role === "mentor"
+                      ? "/mentor"
+                      : "/student"
+                  }
                 >
-                  Go to {role === "mentor" ? "Mentor" : "Student"} Dashboard
+                  Go to {role === "admin" ? "Admin" : role === "mentor" ? "Mentor" : "Student"} Dashboard
                 </Link>
               </div>
             )}
