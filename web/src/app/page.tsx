@@ -71,16 +71,11 @@ export default function Home() {
               </Link>
             )}
 
-            <select
-              className="rounded-xl border px-3 py-2 text-sm bg-white disabled:opacity-50"
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              disabled={!isAuthed}
-              aria-label="Select role (temporary)"
-            >
-              <option value="student">Student</option>
-              <option value="mentor">Mentor</option>
-            </select>
+            {isAuthed && (
+              <span className="text-xs text-zinc-600 px-2">
+                Role system coming in next step
+              </span>
+            )}
           </div>
         </div>
       </header>
