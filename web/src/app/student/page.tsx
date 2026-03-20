@@ -70,6 +70,9 @@ export default function StudentDashboard() {
           </p>
 
           <div className="mt-4 grid gap-3">
+            {mentors.length === 0 && (
+              <div className="text-sm text-zinc-500">No mentors available yet.</div>
+            )}
             {mentors.map((mentor) => (
               <div key={mentor.id} className="rounded-xl border p-4">
                 <div className="text-sm font-semibold">
