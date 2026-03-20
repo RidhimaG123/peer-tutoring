@@ -68,6 +68,19 @@ export default function StudentDashboard() {
           <p className="mt-2 text-sm text-zinc-600">
             {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
           </p>
+
+          <div className="mt-4 grid gap-3">
+            {mentors.map((mentor) => (
+              <div key={mentor.id} className="rounded-xl border p-4">
+                <div className="text-sm font-semibold">
+                  {mentor.display_name || "Unnamed mentor"}
+                </div>
+                <div className="mt-1 text-sm text-zinc-600">
+                  {mentor.headline || "No headline yet."}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </main>
