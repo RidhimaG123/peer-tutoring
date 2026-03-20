@@ -78,6 +78,12 @@ export default function StudentDashboard() {
                 <div className="mt-1 text-sm text-zinc-600">
                   {mentor.headline || "No headline yet."}
                 </div>
+                <div className="mt-2 text-xs text-zinc-500">
+                  {mentor.subjects?.join(", ") || "No subjects listed."}
+                </div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
+                </div>
               </div>
             ))}
           </div>
