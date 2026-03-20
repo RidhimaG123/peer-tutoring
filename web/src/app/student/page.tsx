@@ -4,9 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+type MentorProfile = {
+  id: string;
+  display_name: string | null;
+  headline: string | null;
+  bio: string | null;
+  subjects: string[] | null;
+};
+
 export default function StudentDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [mentors, setMentors] = useState<MentorProfile[]>([]);
 
   useEffect(() => {
     async function checkAccess() {
@@ -29,6 +38,13 @@ export default function StudentDashboard() {
         return;
       }
 
+      const { data: mentorsData } = await supabase
+        .from("profiles")
+        .select("id, display_name, headline, bio, subjects")
+        .eq("role", "mentor")
+        .order("created_at", { ascending: false });
+
+      setMentors(mentorsData ?? []);
       setLoading(false);
     }
 
@@ -43,7 +59,14 @@ export default function StudentDashboard() {
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-lg font-semibold">Student Dashboard</div>
           <p className="mt-2 text-sm text-zinc-600">
-            Milestone 1 complete: protected student view.
+            Browse mentors and profile details in this milestone.
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="text-base font-semibold">Mentor Directory</div>
+          <p className="mt-2 text-sm text-zinc-600">
+            {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
           </p>
         </div>
       </div>
