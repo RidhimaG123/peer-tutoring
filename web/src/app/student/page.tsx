@@ -33,6 +33,7 @@ export default function StudentDashboard() {
   const [subjectFilter, setSubjectFilter] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
   const [availabilityInput, setAvailabilityInput] = useState("");
+  const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -154,6 +155,15 @@ export default function StudentDashboard() {
 
       setMatchedMentorId(matchData?.mentor_id ?? null);
 
+      const { data: historyData } = await supabase
+        .from("matches")
+        .select("mentor_id, created_at")
+        .eq("student_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(7);
+
+      setMatchHistory(historyData ?? []);
+
       const { data: mentorsData } = await supabase
         .from("profiles")
         .select("id, display_name, headline, bio, subjects")
@@ -227,6 +237,22 @@ export default function StudentDashboard() {
           ) : (
             <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
           )}
+        </div>
+
+        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="text-base font-semibold">Recent Match History</div>
+          <div className="mt-2 space-y-2 text-sm text-zinc-700">
+            {matchHistory.length === 0 ? (
+              <p>No recent matches yet.</p>
+            ) : (
+              matchHistory.map((match, index) => (
+                <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border p-3">
+                  <div><span className="font-medium">Mentor ID:</span> {match.mentor_id}</div>
+                  <div><span className="font-medium">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
 
