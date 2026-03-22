@@ -31,6 +31,7 @@ export default function StudentDashboard() {
   const [subjectsInput, setSubjectsInput] = useState("");
   const [bioInput, setBioInput] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("");
   const [availabilityInput, setAvailabilityInput] = useState("");
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
@@ -109,10 +110,13 @@ export default function StudentDashboard() {
 
 
   const filteredMentors = mentors.filter((mentor) => {
-    if (!subjectFilter) return true;
-    return mentor.subjects?.some((s) =>
+    const subjectMatch = !subjectFilter || mentor.subjects?.some((s) =>
       s.toLowerCase().includes(subjectFilter.toLowerCase())
     );
+
+    const gradeMatch = !gradeFilter || mentor.headline?.toLowerCase().includes(gradeFilter.toLowerCase());
+
+    return subjectMatch && gradeMatch;
   });
 
   if (loading) return null;
@@ -169,6 +173,7 @@ export default function StudentDashboard() {
           <p className="mt-2 text-sm text-zinc-600">
             {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
           </p>
+          <input value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} className="mt-2 w-full rounded border p-2 text-sm" placeholder="Filter by grade" />
           <input value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="mt-3 w-full rounded border p-2 text-sm" placeholder="Filter by subject" />
 
 
