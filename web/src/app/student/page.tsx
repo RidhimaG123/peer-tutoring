@@ -182,7 +182,8 @@ export default function StudentDashboard() {
               <div className="text-sm text-zinc-500">No mentors available yet.</div>
             )}
             {filteredMentors.map((mentor) => (
-              <div key={mentor.id} className="rounded-xl border p-4">
+              <a href={`/student/mentor/${mentor.id}`} className="block">
+                <div className="rounded-xl border p-4 hover:bg-zinc-50">
                 <div className="text-sm font-semibold">
                   {mentor.display_name || "Unnamed mentor"}
                 </div>
@@ -195,7 +196,8 @@ export default function StudentDashboard() {
                 <div className="mt-1 text-xs text-zinc-500">
                   {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
                 </div>
-              </div>
+                </div>
+              </a>
             ))}
           </div>
         </div>
