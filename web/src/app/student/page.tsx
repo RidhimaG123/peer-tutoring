@@ -30,6 +30,7 @@ export default function StudentDashboard() {
   const [gradeInput, setGradeInput] = useState("");
   const [subjectsInput, setSubjectsInput] = useState("");
   const [bioInput, setBioInput] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
   const [availabilityInput, setAvailabilityInput] = useState("");
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
@@ -79,7 +80,6 @@ export default function StudentDashboard() {
         setAvailabilityInput(profile.availability_preference || "");
       }
 
-      setProfile(profile);
 
       if (profile?.role !== "student") {
         router.replace("/");
@@ -106,6 +106,14 @@ export default function StudentDashboard() {
 
     checkAccess();
   }, [router]);
+
+
+  const filteredMentors = mentors.filter((mentor) => {
+    if (!subjectFilter) return true;
+    return mentor.subjects?.some((s) =>
+      s.toLowerCase().includes(subjectFilter.toLowerCase())
+    );
+  });
 
   if (loading) return null;
 
@@ -161,12 +169,14 @@ export default function StudentDashboard() {
           <p className="mt-2 text-sm text-zinc-600">
             {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
           </p>
+          <input value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="mt-3 w-full rounded border p-2 text-sm" placeholder="Filter by subject" />
+
 
           <div className="mt-4 grid gap-3">
             {mentors.length === 0 && (
               <div className="text-sm text-zinc-500">No mentors available yet.</div>
             )}
-            {mentors.map((mentor) => (
+            {filteredMentors.map((mentor) => (
               <div key={mentor.id} className="rounded-xl border p-4">
                 <div className="text-sm font-semibold">
                   {mentor.display_name || "Unnamed mentor"}
