@@ -62,6 +62,8 @@ export default function StudentDashboard() {
 
   if (loading) return null;
 
+  const matchedMentor = mentors.find((mentor) => mentor.id === matchedMentorId) ?? null;
+
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
@@ -75,7 +77,10 @@ export default function StudentDashboard() {
           <div className="mt-4 rounded-2xl border bg-green-50 p-5 shadow-sm">
             <div className="text-base font-semibold">Your Assigned Mentor</div>
             <p className="mt-2 text-sm text-zinc-700">
-              You have been matched with a mentor.
+              You have been matched with 
+              <span className="font-semibold">
+                {matchedMentor?.display_name || "your mentor"}
+              </span>.
             </p>
           </div>
         )}
