@@ -26,6 +26,32 @@ export default function StudentDashboard() {
   const [mentors, setMentors] = useState<MentorProfile[]>([]);
   const [matchedMentorId, setMatchedMentorId] = useState<string | null>(null);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const [gradeInput, setGradeInput] = useState("");
+  const [subjectsInput, setSubjectsInput] = useState("");
+  const [bioInput, setBioInput] = useState("");
+  const [availabilityInput, setAvailabilityInput] = useState("");
+  async function handleSave() {
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+
+    if (!session) return;
+
+    await supabase
+      .from("profiles")
+      .update({
+        display_name: nameInput,
+        grade: gradeInput,
+        subjects: subjectsInput.split(",").map(s => s.trim()),
+        bio: bioInput,
+        availability_preference: availabilityInput
+      })
+      .eq("id", session.user.id);
+
+    // reload page data
+    window.location.reload();
+  }
+
 
   useEffect(() => {
     async function checkAccess() {
@@ -42,6 +68,16 @@ export default function StudentDashboard() {
         .select("role, display_name, grade, bio, subjects, availability_preference")
         .eq("id", session.user.id)
         .single();
+
+      setProfile(profile);
+
+      if (profile) {
+        setNameInput(profile.display_name || "");
+        setGradeInput(profile.grade || "");
+        setSubjectsInput(profile.subjects?.join(", ") || "");
+        setBioInput(profile.bio || "");
+        setAvailabilityInput(profile.availability_preference || "");
+      }
 
       setProfile(profile);
 
@@ -93,6 +129,18 @@ export default function StudentDashboard() {
             <div><span className="font-medium">Subjects:</span> {profile?.subjects?.join(", ") || "Not set"}</div>
             <div><span className="font-medium">Bio:</span> {profile?.bio || "Not set"}</div>
             <div><span className="font-medium">Availability:</span> {profile?.availability_preference || "Not set"}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="text-base font-semibold">Edit Profile</div>
+          <div className="mt-2 space-y-2">
+            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
+            <input value={gradeInput} onChange={(e) => setGradeInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Grade" />
+            <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
+            <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
+            <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
+            <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
           </div>
         </div>
         {matchedMentorId && (
