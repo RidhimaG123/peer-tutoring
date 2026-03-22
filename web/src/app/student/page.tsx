@@ -68,11 +68,15 @@ export default function StudentDashboard() {
 
     if (!matchedMentor) return;
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
     const { data: existingMatch } = await supabase
       .from("matches")
       .select("id")
       .eq("student_id", studentId)
       .eq("status", "active")
+      .gte("created_at", todayStart.toISOString())
       .maybeSingle();
 
     if (existingMatch) return;
