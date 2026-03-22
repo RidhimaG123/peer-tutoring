@@ -191,17 +191,19 @@ export default function StudentDashboard() {
             <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
           </div>
         </div>
-        {matchedMentorId && (
-          <div className="mt-4 rounded-2xl border bg-green-50 p-5 shadow-sm">
-            <div className="text-base font-semibold">Your Assigned Mentor</div>
-            <p className="mt-2 text-sm text-zinc-700">
-              You have been matched with 
-              <span className="font-semibold">
-                {matchedMentor?.display_name || "your mentor"}
-              </span>.
-            </p>
-          </div>
-        )}
+        <div className="mt-4 rounded-2xl border bg-green-50 p-5 shadow-sm">
+          <div className="text-base font-semibold">Today’s Match</div>
+          {matchedMentor ? (
+            <div className="mt-2 space-y-2 text-sm text-zinc-700">
+              <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
+              <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
+              <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
+              <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded bg-zinc-900 px-4 py-2 text-sm text-white">View Mentor Profile</a>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
+          )}
+        </div>
 
 
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
