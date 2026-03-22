@@ -12,11 +12,20 @@ type MentorProfile = {
   subjects: string[] | null;
 };
 
+type StudentProfile = {
+  display_name: string | null;
+  grade: string | null;
+  bio: string | null;
+  subjects: string[] | null;
+  availability_preference: string | null;
+};
+
 export default function StudentDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [mentors, setMentors] = useState<MentorProfile[]>([]);
   const [matchedMentorId, setMatchedMentorId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
 
   useEffect(() => {
     async function checkAccess() {
@@ -30,9 +39,11 @@ export default function StudentDashboard() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, display_name, grade, bio, subjects, availability_preference")
         .eq("id", session.user.id)
         .single();
+
+      setProfile(profile);
 
       if (profile?.role !== "student") {
         router.replace("/");
@@ -72,6 +83,17 @@ export default function StudentDashboard() {
           <p className="mt-2 text-sm text-zinc-600">
             Browse mentors and profile details in this milestone.
           </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="text-base font-semibold">Your Profile</div>
+          <div className="mt-2 space-y-1 text-sm text-zinc-700">
+            <div><span className="font-medium">Name:</span> {profile?.display_name || "Not set"}</div>
+            <div><span className="font-medium">Grade:</span> {profile?.grade || "Not set"}</div>
+            <div><span className="font-medium">Subjects:</span> {profile?.subjects?.join(", ") || "Not set"}</div>
+            <div><span className="font-medium">Bio:</span> {profile?.bio || "Not set"}</div>
+            <div><span className="font-medium">Availability:</span> {profile?.availability_preference || "Not set"}</div>
+          </div>
         </div>
         {matchedMentorId && (
           <div className="mt-4 rounded-2xl border bg-green-50 p-5 shadow-sm">
