@@ -54,6 +54,25 @@ export default function StudentDashboard() {
     window.location.reload();
   }
 
+  async function handleRematch() {
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+
+    if (!session) return;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    await supabase
+      .from("matches")
+      .delete()
+      .eq("student_id", session.user.id)
+      .gte("created_at", todayStart.toISOString());
+
+    await runMatching(session.user.id, profile?.subjects ?? null);
+    window.location.reload();
+  }
+
   async function runMatching(studentId: string, studentSubjects: string[] | null) {
     if (!studentSubjects || studentSubjects.length === 0) return;
 
@@ -199,6 +218,7 @@ export default function StudentDashboard() {
           <div className="text-base font-semibold">Today’s Match</div>
           {matchedMentor ? (
             <div className="mt-2 space-y-2 text-sm text-zinc-700">
+              <button onClick={handleRematch} className="ml-2 rounded border px-4 py-2 text-sm">Rematch</button>
               <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
               <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
