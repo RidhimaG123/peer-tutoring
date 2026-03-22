@@ -54,6 +54,38 @@ export default function StudentDashboard() {
     window.location.reload();
   }
 
+  async function runMatching(studentId: string, studentSubjects: string[] | null) {
+    if (!studentSubjects || studentSubjects.length === 0) return;
+
+    const { data: mentorMatches } = await supabase
+      .from("profiles")
+      .select("id, subjects")
+      .eq("role", "mentor");
+
+    const matchedMentor = mentorMatches?.find((mentor) =>
+      mentor.subjects?.some((subject: string) => studentSubjects.includes(subject))
+    );
+
+    if (!matchedMentor) return;
+
+    const { data: existingMatch } = await supabase
+      .from("matches")
+      .select("id")
+      .eq("student_id", studentId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (existingMatch) return;
+
+    await supabase
+      .from("matches")
+      .insert({
+        student_id: studentId,
+        mentor_id: matchedMentor.id,
+        status: "active"
+      });
+  }
+
 
   useEffect(() => {
     async function checkAccess() {
@@ -80,6 +112,10 @@ export default function StudentDashboard() {
         setBioInput(profile.bio || "");
         setAvailabilityInput(profile.availability_preference || "");
       }
+      if (profile) {
+        await runMatching(session.user.id, profile.subjects);
+      }
+
 
 
       if (profile?.role !== "student") {
