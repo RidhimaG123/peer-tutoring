@@ -16,6 +16,7 @@ export default function StudentDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [mentors, setMentors] = useState<MentorProfile[]>([]);
+  const [matchedMentorId, setMatchedMentorId] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkAccess() {
@@ -37,6 +38,14 @@ export default function StudentDashboard() {
         router.replace("/");
         return;
       }
+
+      const { data: matchData } = await supabase
+        .from("matches")
+        .select("mentor_id")
+        .eq("student_id", session.user.id)
+        .maybeSingle();
+
+      setMatchedMentorId(matchData?.mentor_id ?? null);
 
       const { data: mentorsData } = await supabase
         .from("profiles")
@@ -62,6 +71,15 @@ export default function StudentDashboard() {
             Browse mentors and profile details in this milestone.
           </p>
         </div>
+        {matchedMentorId && (
+          <div className="mt-4 rounded-2xl border bg-green-50 p-5 shadow-sm">
+            <div className="text-base font-semibold">Your Assigned Mentor</div>
+            <p className="mt-2 text-sm text-zinc-700">
+              You have been matched with a mentor.
+            </p>
+          </div>
+        )}
+
 
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-base font-semibold">Mentor Directory</div>
