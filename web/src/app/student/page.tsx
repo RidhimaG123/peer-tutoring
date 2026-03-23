@@ -10,6 +10,7 @@ type MentorProfile = {
   headline: string | null;
   bio: string | null;
   subjects: string[] | null;
+  average_rating: number | null;
 };
 
 type StudentProfile = {
@@ -34,6 +35,7 @@ export default function StudentDashboard() {
   const [gradeFilter, setGradeFilter] = useState("");
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
+  const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -68,6 +70,15 @@ export default function StudentDashboard() {
         mentor_id: matchedMentorId,
         status: "requested"
       });
+
+    window.location.reload();
+  }
+
+  async function handleRateSession(sessionId: string, rating: number) {
+    await supabase
+      .from("sessions")
+      .update({ rating })
+      .eq("id", sessionId);
 
     window.location.reload();
   }
@@ -187,13 +198,40 @@ export default function StudentDashboard() {
 
       setMatchHistory(historyData ?? []);
 
+      const { data: pendingRatingData } = await supabase
+        .from("sessions")
+        .select("id, mentor_id, created_at")
+        .eq("student_id", session.user.id)
+        .eq("status", "completed")
+        .is("rating", null)
+        .order("created_at", { ascending: false });
+
+      setPendingRatings(pendingRatingData ?? []);
+      const { data: ratingData } = await supabase
+        .from("sessions")
+        .select("mentor_id, rating")
+        .not("rating", "is", null);
+
+
       const { data: mentorsData } = await supabase
         .from("profiles")
         .select("id, display_name, headline, bio, subjects")
         .eq("role", "mentor")
         .order("created_at", { ascending: false });
 
-      setMentors(mentorsData ?? []);
+      const mentorsWithRatings = (mentorsData ?? []).map((mentor) => {
+        const mentorRatings = (ratingData ?? [])
+          .filter((session) => session.mentor_id === mentor.id)
+          .map((session) => session.rating as number);
+
+        const average_rating = mentorRatings.length > 0
+          ? mentorRatings.reduce((sum, rating) => sum + rating, 0) / mentorRatings.length
+          : null;
+
+        return { ...mentor, average_rating };
+      });
+
+      setMentors(mentorsWithRatings);
       setLoading(false);
     }
 
@@ -263,6 +301,29 @@ export default function StudentDashboard() {
           )}
         </div>
 
+
+        <div className="mt-4 rounded-2xl border bg-yellow-50 p-5 shadow-sm">
+          <div className="text-base font-semibold">Pending Ratings</div>
+          <div className="mt-2 space-y-2 text-sm text-zinc-700">
+            {pendingRatings.length === 0 ? (
+              <p>No sessions to rate.</p>
+            ) : (
+              pendingRatings.map((session) => (
+                <div key={session.id} className="rounded border p-3">
+                  <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
+                  <div className="mt-2 space-x-2">
+                    {[1,2,3,4,5].map((r) => (
+                      <button key={r} onClick={() => handleRateSession(session.id, r)} className="rounded bg-yellow-400 px-2 py-1 text-xs">
+                        {r}★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-base font-semibold">Recent Match History</div>
           <div className="mt-2 space-y-2 text-sm text-zinc-700">
@@ -304,6 +365,9 @@ export default function StudentDashboard() {
                 </div>
                 <div className="mt-2 text-xs text-zinc-500">
                   {mentor.subjects?.join(", ") || "No subjects listed."}
+                </div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  {mentor.average_rating ? `Rating: ${mentor.average_rating.toFixed(1)}/5` : "No ratings yet."}
                 </div>
                 <div className="mt-1 text-xs text-zinc-500">
                   {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
