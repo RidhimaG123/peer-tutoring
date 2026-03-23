@@ -23,6 +23,15 @@ export default function MentorDashboard() {
 
     window.location.reload();
   }
+  async function handleCompleteSession(sessionId: string) {
+    await supabase
+      .from("sessions")
+      .update({ status: "completed" })
+      .eq("id", sessionId);
+
+    window.location.reload();
+  }
+
   const [requests, setRequests] = useState<SessionRequest[]>([]);
 
   useEffect(() => {
@@ -40,7 +49,6 @@ export default function MentorDashboard() {
         .select("role")
         .eq("id", session.user.id)
         .single();
-
       if (profile?.role !== "mentor") {
         router.replace("/");
         return;
@@ -49,8 +57,8 @@ export default function MentorDashboard() {
       const { data: sessionRequests } = await supabase
         .from("sessions")
         .select("id, student_id, status, created_at")
+        .in("status", ["requested", "confirmed"])
         .eq("mentor_id", session.user.id)
-        .eq("status", "requested")
         .order("created_at", { ascending: false });
 
       setRequests(sessionRequests ?? []);
@@ -84,7 +92,12 @@ export default function MentorDashboard() {
                 <div key={request.id} className="rounded border p-3">
                   <div><span className="font-medium">Student ID:</span> {request.student_id}</div>
                   <div><span className="font-medium">Status:</span> {request.status}</div>
-                  <button onClick={() => handleAcceptSession(request.id)} className="mt-2 rounded bg-green-600 px-3 py-1 text-xs text-white">Accept</button>
+                  {request.status === "requested" && (
+                    <button onClick={() => handleAcceptSession(request.id)} className="mt-2 rounded bg-green-600 px-3 py-1 text-xs text-white">Accept</button>
+                  )}
+                  {request.status === "confirmed" && (
+                    <button onClick={() => handleCompleteSession(request.id)} className="mt-2 ml-2 rounded bg-blue-600 px-3 py-1 text-xs text-white">Mark Complete</button>
+                  )}
                 </div>
               ))
             )}
