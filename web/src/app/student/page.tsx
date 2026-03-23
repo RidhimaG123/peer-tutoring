@@ -82,9 +82,15 @@ export default function StudentDashboard() {
       .select("id, subjects")
       .eq("role", "mentor");
 
-    const matchedMentor = mentorMatches?.find((mentor) =>
-      mentor.subjects?.some((subject: string) => studentSubjects.includes(subject))
-    );
+    const matchedMentor = mentorMatches
+      ?.map((mentor) => ({
+        ...mentor,
+        overlapCount: mentor.subjects?.filter((subject: string) =>
+          studentSubjects.includes(subject)
+        ).length ?? 0
+      }))
+      .filter((mentor) => mentor.overlapCount > 0)
+      .sort((a, b) => b.overlapCount - a.overlapCount)[0];
 
     if (!matchedMentor) return;
 
