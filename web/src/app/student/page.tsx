@@ -253,7 +253,7 @@ export default function StudentDashboard() {
             ) : (
               matchHistory.map((match, index) => (
                 <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border p-3">
-                  <div><span className="font-medium">Mentor ID:</span> {match.mentor_id}</div>
+                  <div><span className="font-medium">Mentor:</span> {mentors.find((mentor) => mentor.id === match.mentor_id)?.display_name || "Unknown mentor"}</div>
                   <div><span className="font-medium">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
                 </div>
               ))
