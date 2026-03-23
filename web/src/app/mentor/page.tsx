@@ -14,6 +14,15 @@ type SessionRequest = {
 export default function MentorDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+
+  async function handleAcceptSession(sessionId: string) {
+    await supabase
+      .from("sessions")
+      .update({ status: "confirmed" })
+      .eq("id", sessionId);
+
+    window.location.reload();
+  }
   const [requests, setRequests] = useState<SessionRequest[]>([]);
 
   useEffect(() => {
@@ -75,6 +84,7 @@ export default function MentorDashboard() {
                 <div key={request.id} className="rounded border p-3">
                   <div><span className="font-medium">Student ID:</span> {request.student_id}</div>
                   <div><span className="font-medium">Status:</span> {request.status}</div>
+                  <button onClick={() => handleAcceptSession(request.id)} className="mt-2 rounded bg-green-600 px-3 py-1 text-xs text-white">Accept</button>
                 </div>
               ))
             )}
