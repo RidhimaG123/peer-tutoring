@@ -55,6 +55,23 @@ export default function StudentDashboard() {
     window.location.reload();
   }
 
+  async function handleRequestSession() {
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+
+    if (!session || !matchedMentorId) return;
+
+    await supabase
+      .from("sessions")
+      .insert({
+        student_id: session.user.id,
+        mentor_id: matchedMentorId,
+        status: "requested"
+      });
+
+    window.location.reload();
+  }
+
   async function handleRematch() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -239,6 +256,7 @@ export default function StudentDashboard() {
               <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
               <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded bg-zinc-900 px-4 py-2 text-sm text-white">View Mentor Profile</a>
+              <button onClick={handleRequestSession} className="ml-2 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
             </div>
           ) : (
             <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
