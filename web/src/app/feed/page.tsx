@@ -7,6 +7,8 @@ export default function FeedPage() {
   const [completedCount, setCompletedCount] = useState(0);
 
   const [topMentors, setTopMentors] = useState<{ mentor_id: string; count: number }[]>([]);
+  const [recentQuestions, setRecentQuestions] = useState<{ subject: string; created_at: string }[]>([]);
+  const [recentActivity, setRecentActivity] = useState<{ type: string; created_at: string }[]>([]);
   useEffect(() => {
     async function loadFeed() {
       const { count } = await supabase
@@ -29,6 +31,19 @@ export default function FeedPage() {
         .sort((a, b) => b.count - a.count)
         .slice(0, 3);
 
+
+      const { data: activity } = await supabase
+        .from("sessions")
+        .select("status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      const formatted = (activity ?? []).map((a) => ({
+        type: a.status === "completed" ? "Session completed" : "New help request" ,
+        created_at: a.created_at
+      }));
+
+      setRecentActivity(formatted);
       setTopMentors(sorted);
 
       setCompletedCount(count ?? 0);
@@ -55,6 +70,20 @@ export default function FeedPage() {
                 topMentors.map((m, i) => (
                   <div key={m.mentor_id}>
                     #{i + 1} — {m.count} sessions
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <div className="mt-6">
+            <div className="text-sm font-semibold">Recent activity</div>
+            <div className="mt-2 space-y-1 text-sm text-zinc-700">
+              {recentActivity.length === 0 ? (
+                <p>No activity yet.</p>
+              ) : (
+                recentActivity.map((a, i) => (
+                  <div key={i}>
+                    {a.type}
                   </div>
                 ))
               )}
