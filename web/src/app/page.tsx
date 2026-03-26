@@ -139,19 +139,6 @@ export default function Home() {
             </div>
           </div>
 
-          <aside className="rounded-2xl border bg-white p-4 shadow-sm">
-            <div className="text-base font-semibold">Roadmap</div>
-            <ul className="mt-2 space-y-2 text-sm text-zinc-700">
-              <li>v0.1 Foundation ✅</li>
-              <li>v0.2 Auth + roles</li>
-              <li>v0.3 Profiles + directory</li>
-              <li>v0.4 Daily matching</li>
-              <li>v0.5 Ask + reply</li>
-            </ul>
-            <div className="mt-4 rounded-2xl bg-zinc-50 p-3 text-xs text-zinc-600">
-              Tablet tip: resize to ~768px width — spacing should stay readable.
-            </div>
-          </aside>
         </div>
       </section>
 

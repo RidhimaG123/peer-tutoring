@@ -8,6 +8,7 @@ export default function AuthPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("student");
   const [status, setStatus] = useState<string>("");
 
   async function signIn(e: React.FormEvent) {
@@ -35,6 +36,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: { data: { role } },
     });
 
     if (error) {
@@ -78,6 +80,10 @@ export default function AuthPage() {
                 required
               />
             </label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setRole("student")} className={`flex-1 rounded-xl border px-3 py-2 text-sm ${role === "student" ? "bg-zinc-900 text-white" : ""}`}>Student</button>
+              <button type="button" onClick={() => setRole("mentor")} className={`flex-1 rounded-xl border px-3 py-2 text-sm ${role === "mentor" ? "bg-zinc-900 text-white" : ""}`}>Mentor</button>
+            </div>
 
             <div className="flex gap-2 pt-2">
               <button
