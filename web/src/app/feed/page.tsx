@@ -7,7 +7,6 @@ export default function FeedPage() {
   const [completedCount, setCompletedCount] = useState(0);
 
   const [topMentors, setTopMentors] = useState<{ mentor_id: string; count: number }[]>([]);
-  const [recentQuestions, setRecentQuestions] = useState<{ subject: string; created_at: string }[]>([]);
   const [recentActivity, setRecentActivity] = useState<{ type: string; created_at: string }[]>([]);
   useEffect(() => {
     async function loadFeed() {

@@ -399,7 +399,7 @@ export default function StudentDashboard() {
               <div className="text-sm text-zinc-500">No mentors available yet.</div>
             )}
             {filteredMentors.map((mentor) => (
-              <div className="block w-full text-left">
+              <div key={mentor.id} className="block w-full text-left">
                 <div className="rounded-xl border p-4 hover:bg-zinc-50">
                 <div className="text-sm font-semibold">
                   {mentor.display_name || "Unnamed mentor"}
