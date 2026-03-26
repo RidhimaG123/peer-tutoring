@@ -76,6 +76,7 @@ export default function MentorDashboard() {
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <button onClick={() => router.push("/")} className="mb-3 rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50">← Home</button>
           <div className="text-lg font-semibold">Mentor Dashboard</div>
           <p className="mt-2 text-sm text-zinc-600">
             Milestone 1 complete: protected mentor view.
