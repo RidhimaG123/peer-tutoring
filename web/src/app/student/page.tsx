@@ -36,6 +36,8 @@ export default function StudentDashboard() {
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
+  const [currentSession, setCurrentSession] = useState<{ id: string; mentor_id: string; status: string } | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -57,19 +59,24 @@ export default function StudentDashboard() {
     window.location.reload();
   }
 
-  async function handleRequestSession() {
+  async function handleRequestSession(mentorId: string) {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
+    if (!session || !mentorId || !selectedTimeSlot) return;
 
-    if (!session || !matchedMentorId) return;
-
-    await supabase
+    const { error } = await supabase
       .from("sessions")
       .insert({
         student_id: session.user.id,
-        mentor_id: matchedMentorId,
-        status: "requested"
+        mentor_id: mentorId,
+        requested_time: selectedTimeSlot,
+        status: "requested",
       });
+
+    if (error) {
+      console.error("request session error", error);
+      return;
+    }
 
     window.location.reload();
   }
@@ -212,6 +219,17 @@ export default function StudentDashboard() {
         .select("mentor_id, rating")
         .not("rating", "is", null);
 
+      const { data: currentSessionData } = await supabase
+        .from("sessions")
+        .select("id, mentor_id, status")
+        .eq("student_id", session.user.id)
+        .in("status", ["requested", "confirmed", "declined"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setCurrentSession(currentSessionData ?? null);
+
 
       const { data: mentorsData } = await supabase
         .from("profiles")
@@ -295,7 +313,32 @@ export default function StudentDashboard() {
               <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
               <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded bg-zinc-900 px-4 py-2 text-sm text-white">View Mentor Profile</a>
-              <button onClick={handleRequestSession} className="ml-2 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
+              <div className="mt-2">
+                <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
+                <div className="flex flex-wrap gap-2">
+                  {["Monday 4:00 PM", "Tuesday 5:00 PM", "Wednesday 6:00 PM"].map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => setSelectedTimeSlot(slot)}
+                      className={`rounded border px-3 py-1 text-xs ${selectedTimeSlot === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
+              {currentSession && currentSession.mentor_id === matchedMentor.id && (
+                <div className="mt-2 rounded border bg-white p-3 text-xs">
+                  <span className="font-medium">Session Status:</span> {
+                    currentSession.status === "requested" ? "Pending ⏳" :
+                    currentSession.status === "confirmed" ? "Accepted ✅" :
+                    currentSession.status === "declined" ? "Declined ❌" :
+                    currentSession.status
+                  }
+                </div>
+              )}
             </div>
           ) : (
             <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
@@ -356,7 +399,7 @@ export default function StudentDashboard() {
               <div className="text-sm text-zinc-500">No mentors available yet.</div>
             )}
             {filteredMentors.map((mentor) => (
-              <a href={`/student/mentor/${mentor.id}`} className="block">
+              <div className="block w-full text-left">
                 <div className="rounded-xl border p-4 hover:bg-zinc-50">
                 <div className="text-sm font-semibold">
                   {mentor.display_name || "Unnamed mentor"}
@@ -373,8 +416,34 @@ export default function StudentDashboard() {
                 <div className="mt-1 text-xs text-zinc-500">
                   {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
                 </div>
+                  <div className="mt-3">
+                    <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
+                    <div className="flex flex-wrap gap-2">
+                      {["Monday 4:00 PM", "Tuesday 5:00 PM", "Wednesday 6:00 PM"].map((slot) => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setSelectedTimeSlot(slot)}
+                          className={`rounded border px-3 py-1 text-xs ${selectedTimeSlot === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={() => handleRequestSession(mentor.id)} className="mt-3 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
+                  {currentSession && currentSession.mentor_id === mentor.id && (
+                    <div className="mt-2 rounded border bg-white p-2 text-xs">
+                      <span className="font-medium">Status:</span> {
+                        currentSession.status === "requested" ? "Pending ⏳" :
+                        currentSession.status === "confirmed" ? "Accepted ✅" :
+                        currentSession.status === "declined" ? "Declined ❌" :
+                        currentSession.status
+                      }
+                    </div>
+                  )}
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         </div>
