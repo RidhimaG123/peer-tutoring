@@ -120,7 +120,12 @@ export default function MentorDashboard() {
         .eq("mentor_id", session.user.id)
         .order("created_at", { ascending: false });
 
-      setRequests(sessionRequests ?? []);
+      const normalizedRequests = (sessionRequests ?? []).map((request) => ({
+        ...request,
+        student: Array.isArray(request.student) ? (request.student[0] ?? null) : request.student
+      }));
+
+      setRequests(normalizedRequests);
 
 
 
