@@ -37,6 +37,7 @@ export default function StudentDashboard() {
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
   const [currentSession, setCurrentSession] = useState<{ id: string; mentor_id: string; status: string } | null>(null);
+  const [requesting, setRequesting] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
@@ -62,8 +63,23 @@ export default function StudentDashboard() {
   async function handleRequestSession(mentorId: string) {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
-    if (!session || !mentorId || !selectedTimeSlot) return;
+    if (requesting || !session || !mentorId || !selectedTimeSlot) return;
 
+    setRequesting(true);
+
+    const { data: existingRequest } = await supabase
+      .from("sessions")
+      .select("id")
+      .eq("student_id", session.user.id)
+      .eq("mentor_id", mentorId)
+      .eq("requested_time", selectedTimeSlot)
+      .in("status", ["requested", "confirmed"])
+      .maybeSingle();
+
+    if (existingRequest) {
+      setRequesting(false);
+      return;
+    }
     const { error } = await supabase
       .from("sessions")
       .insert({
@@ -74,13 +90,14 @@ export default function StudentDashboard() {
       });
 
     if (error) {
+      setRequesting(false);
       console.error("request session error", error);
       return;
     }
 
     window.location.reload();
-  }
 
+  }
   async function handleRateSession(sessionId: string, rating: number) {
     await supabase
       .from("sessions")
@@ -223,7 +240,7 @@ export default function StudentDashboard() {
         .from("sessions")
         .select("id, mentor_id, status")
         .eq("student_id", session.user.id)
-        .in("status", ["requested", "confirmed", "declined"])
+        .in("status", ["requested", "confirmed", "declined", "completed"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -334,6 +351,7 @@ export default function StudentDashboard() {
                   <span className="font-medium">Session Status:</span> {
                     currentSession.status === "requested" ? "Pending ⏳" :
                     currentSession.status === "confirmed" ? "Accepted ✅" :
+                    currentSession.status === "completed" ? "Completed ✅" :
                     currentSession.status === "declined" ? "Declined ❌" :
                     currentSession.status
                   }
@@ -431,7 +449,7 @@ export default function StudentDashboard() {
                       ))}
                     </div>
                   </div>
-                  <button onClick={() => handleRequestSession(mentor.id)} className="mt-3 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
+                  <button disabled={requesting} onClick={() => handleRequestSession(mentor.id)} className="mt-3 rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed">{requesting ? "Requesting..." : "Request Session"}</button>
                   {currentSession && currentSession.mentor_id === mentor.id && (
                     <div className="mt-2 rounded border bg-white p-2 text-xs">
                       <span className="font-medium">Status:</span> {
