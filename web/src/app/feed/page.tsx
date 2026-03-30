@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 export default function FeedPage() {
   const [completedCount, setCompletedCount] = useState(0);
 
-  const [topMentors, setTopMentors] = useState<{ mentor_id: string; count: number }[]>([]);
+  const [topMentors, setTopMentors] = useState<{ mentor_id: string; name: string; count: number }[]>([]);
   const [recentActivity, setRecentActivity] = useState<{ type: string; created_at: string }[]>([]);
   useEffect(() => {
     async function loadFeed() {
@@ -30,6 +30,23 @@ export default function FeedPage() {
         .sort((a, b) => b.count - a.count)
         .slice(0, 3);
 
+      // Resolve mentor names
+      const mentorIds = sorted.map((m) => m.mentor_id);
+      const { data: mentorProfiles } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", mentorIds);
+
+      const nameMap: Record<string, string> = {};
+      (mentorProfiles ?? []).forEach((p) => {
+        nameMap[p.id] = p.display_name || "Unnamed mentor";
+      });
+
+      const sortedWithNames = sorted.map((m) => ({
+        ...m,
+        name: nameMap[m.mentor_id] || "Unknown",
+      }));
+
 
       const { data: activity } = await supabase
         .from("sessions")
@@ -43,7 +60,7 @@ export default function FeedPage() {
       }));
 
       setRecentActivity(formatted);
-      setTopMentors(sorted);
+      setTopMentors(sortedWithNames);
 
       setCompletedCount(count ?? 0);
     }
@@ -68,7 +85,7 @@ export default function FeedPage() {
               ) : (
                 topMentors.map((m, i) => (
                   <div key={m.mentor_id}>
-                    #{i + 1} — {m.count} sessions
+                    #{i + 1} — {m.name} — {m.count} sessions
                   </div>
                 ))
               )}

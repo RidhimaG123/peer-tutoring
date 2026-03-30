@@ -35,7 +35,14 @@ export default function AdminDashboard() {
     checkAccess();
   }, [router]);
 
-  if (loading) return null;
+  if (loading) return (
+    <main className="min-h-dvh bg-zinc-50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-zinc-900" />
+        <p className="text-sm text-zinc-500">Loading...</p>
+      </div>
+    </main>
+  );
 
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
@@ -43,7 +50,7 @@ export default function AdminDashboard() {
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-lg font-semibold">Admin Dashboard</div>
           <p className="mt-2 text-sm text-zinc-600">
-            Milestone 1: admin role supported (manual allowlist/seed).
+            Manage users and oversee platform activity.
           </p>
         </div>
       </div>

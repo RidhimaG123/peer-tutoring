@@ -53,7 +53,7 @@ export default function AuthPage() {
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-lg font-semibold">Sign in</div>
           <p className="mt-1 text-sm text-zinc-600">
-            Milestone 1: Supabase auth (email + password).
+            Sign in to your account.
           </p>
 
           <form className="mt-4 space-y-3" onSubmit={signIn}>

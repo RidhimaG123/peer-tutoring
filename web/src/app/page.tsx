@@ -56,49 +56,9 @@ export default function Home() {
     return `Hello, you’re logged in as a ${role}.`;
   }, [isAuthed, role]);
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-  }
 
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
-      <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
-        <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-zinc-900" aria-hidden />
-            <div>
-              <div className="text-sm font-semibold leading-5">Peer Tutoring</div>
-              <div className="text-xs text-zinc-600">MVP — tablet-first</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isAuthed ? (
-              <button
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50"
-                onClick={handleSignOut}
-                aria-label="Sign out"
-              >
-                Log out
-              </button>
-            ) : (
-              <Link
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50"
-                href="/auth"
-                aria-label="Go to sign in"
-              >
-                Log in
-              </Link>
-            )}
-
-            {isAuthed && (
-              <span className="text-xs text-zinc-600 px-2">
-                {role ? `Role: ${role}` : "Loading role…"}
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
 
       <section className="mx-auto max-w-4xl px-4 py-6">
         <div className="grid gap-4 md:grid-cols-3">
@@ -127,13 +87,13 @@ export default function Home() {
               <div className="rounded-2xl border p-4">
                 <div className="text-sm font-semibold">Today’s Match</div>
                 <div className="mt-1 text-sm text-zinc-600">
-                  {isAuthed ? "Coming in v0.4 (daily matching)." : "Log in to see your match."}
+                  {isAuthed ? "View your matched tutor for today." : "Log in to see your match."}
                 </div>
               </div>
               <div className="rounded-2xl border p-4">
                 <div className="text-sm font-semibold">Quick Action</div>
                 <div className="mt-1 text-sm text-zinc-600">
-                  {isAuthed ? "Ask a question (v0.5)." : "Browse mentors (v0.3)."}
+                  {isAuthed ? "Request a tutoring session." : "Find a tutor for any subject."}
                 </div>
               </div>
             </div>
@@ -143,7 +103,7 @@ export default function Home() {
       </section>
 
       <footer className="mx-auto max-w-4xl px-4 pb-8 text-xs text-zinc-500">
-        MVP focus: daily matching + visibility + lightweight interaction.
+        Peer Tutoring — Connecting students with mentors.
       </footer>
     </main>
   );

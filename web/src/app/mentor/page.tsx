@@ -30,13 +30,46 @@ export default function MentorDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
+  async function loadDashboardData() {
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (!session) return;
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role, display_name, headline, bio, subjects, availability_preference")
+      .eq("id", session.user.id)
+      .single();
+
+    setProfile(profileData);
+    if (profileData) {
+      setNameInput(profileData.display_name || "");
+      setHeadlineInput(profileData.headline || "");
+      setSubjectsInput(profileData.subjects?.join(", ") || "");
+      setBioInput(profileData.bio || "");
+      setAvailabilityInput(profileData.availability_preference || "");
+    }
+
+    const { data: sessionRequests } = await supabase
+      .from("sessions")
+      .select("id, student_id, status, created_at, requested_time, student:profiles!sessions_student_id_fkey(display_name, bio, subjects, grade)")
+      .in("status", ["requested", "confirmed"])
+      .eq("mentor_id", session.user.id)
+      .order("created_at", { ascending: false });
+
+    const normalizedRequests = (sessionRequests ?? []).map((request) => ({
+      ...request,
+      student: Array.isArray(request.student) ? (request.student[0] ?? null) : request.student
+    }));
+    setRequests(normalizedRequests);
+  }
   async function handleAcceptSession(sessionId: string) {
     await supabase
       .from("sessions")
       .update({ status: "confirmed" })
       .eq("id", sessionId);
 
-    window.location.reload();
+    await loadDashboardData();
   }
   async function handleDeclineSession(sessionId: string) {
     await supabase
@@ -44,7 +77,7 @@ export default function MentorDashboard() {
       .update({ status: "declined" })
       .eq("id", sessionId);
 
-    window.location.reload();
+    await loadDashboardData();
   }
   async function handleCompleteSession(sessionId: string) {
     await supabase
@@ -52,7 +85,7 @@ export default function MentorDashboard() {
       .update({ status: "completed" })
       .eq("id", sessionId);
 
-    window.location.reload();
+    await loadDashboardData();
   }
 
   async function handleSave() {
@@ -72,7 +105,7 @@ export default function MentorDashboard() {
       })
       .eq("id", session.user.id);
 
-    window.location.reload();
+    await loadDashboardData();
   }
 
   const [profile, setProfile] = useState<MentorProfile | null>(null);
@@ -135,16 +168,22 @@ export default function MentorDashboard() {
     checkAccess();
   }, [router]);
 
-  if (loading) return null;
+  if (loading) return (
+    <main className="min-h-dvh bg-zinc-50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-zinc-900" />
+        <p className="text-sm text-zinc-500">Loading...</p>
+      </div>
+    </main>
+  );
 
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <button onClick={() => router.push("/")} className="mb-3 rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50">← Home</button>
           <div className="text-lg font-semibold">Mentor Dashboard</div>
           <p className="mt-2 text-sm text-zinc-600">
-            Milestone 1 complete: protected mentor view.
+            Manage your sessions and help students learn.
           </p>
         </div>
 
@@ -162,11 +201,26 @@ export default function MentorDashboard() {
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-base font-semibold">Edit Profile</div>
           <div className="mt-2 space-y-2">
-            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
-            <input value={headlineInput} onChange={(e) => setHeadlineInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Headline" />
-            <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
-            <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
-            <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Name</label>
+              <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Your full name" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Headline</label>
+              <input value={headlineInput} onChange={(e) => setHeadlineInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. Math tutor, Grade 12" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Subjects</label>
+              <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Math, Science, English" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Bio</label>
+              <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Tell students about your teaching style" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Availability</label>
+              <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. Mon-Wed after 3 PM" />
+            </div>
             <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
           </div>
         </div>

@@ -38,7 +38,86 @@ export default function StudentDashboard() {
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
   const [currentSession, setCurrentSession] = useState<{ id: string; mentor_id: string; status: string } | null>(null);
   const [requesting, setRequesting] = useState(false);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [selectedSlots, setSelectedSlots] = useState<Record<string, string>>({});
+
+  async function loadDashboardData() {
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (!session) return;
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role, display_name, grade, bio, subjects, availability_preference")
+      .eq("id", session.user.id)
+      .single();
+
+    setProfile(profileData);
+    if (profileData) {
+      setNameInput(profileData.display_name || "");
+      setGradeInput(profileData.grade || "");
+      setSubjectsInput(profileData.subjects?.join(", ") || "");
+      setBioInput(profileData.bio || "");
+      setAvailabilityInput(profileData.availability_preference || "");
+    }
+
+    const { data: matchData } = await supabase
+      .from("matches")
+      .select("mentor_id")
+      .eq("student_id", session.user.id)
+      .maybeSingle();
+    setMatchedMentorId(matchData?.mentor_id ?? null);
+
+    const { data: historyData } = await supabase
+      .from("matches")
+      .select("mentor_id, created_at")
+      .eq("student_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .limit(7);
+    setMatchHistory(historyData ?? []);
+
+    const { data: pendingRatingData } = await supabase
+      .from("sessions")
+      .select("id, mentor_id, created_at")
+      .eq("student_id", session.user.id)
+      .eq("status", "completed")
+      .is("rating", null)
+      .order("created_at", { ascending: false });
+    setPendingRatings(pendingRatingData ?? []);
+
+    const { data: ratingData } = await supabase
+      .from("sessions")
+      .select("mentor_id, rating")
+      .not("rating", "is", null);
+
+    const { data: currentSessionData } = await supabase
+      .from("sessions")
+      .select("id, mentor_id, status")
+      .eq("student_id", session.user.id)
+      .in("status", ["requested", "confirmed", "declined", "completed"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setCurrentSession(currentSessionData ?? null);
+
+    const { data: mentorsData } = await supabase
+      .from("profiles")
+      .select("id, display_name, headline, bio, subjects")
+      .eq("role", "mentor")
+      .order("created_at", { ascending: false });
+
+    const mentorsWithRatings = (mentorsData ?? []).map((mentor) => {
+      const mentorRatings = (ratingData ?? [])
+        .filter((s) => s.mentor_id === mentor.id)
+        .map((s) => s.rating as number);
+      const average_rating = mentorRatings.length > 0
+        ? mentorRatings.reduce((sum, r) => sum + r, 0) / mentorRatings.length
+        : null;
+      return { ...mentor, average_rating };
+    });
+    setMentors(mentorsWithRatings);
+    setRequesting(false);
+  }
+
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -57,13 +136,13 @@ export default function StudentDashboard() {
       .eq("id", session.user.id);
 
     // reload page data
-    window.location.reload();
+    await loadDashboardData();
   }
 
   async function handleRequestSession(mentorId: string) {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
-    if (requesting || !session || !mentorId || !selectedTimeSlot) return;
+    if (requesting || !session || !mentorId || !selectedSlots[mentorId]) return;
 
     setRequesting(true);
 
@@ -72,7 +151,7 @@ export default function StudentDashboard() {
       .select("id")
       .eq("student_id", session.user.id)
       .eq("mentor_id", mentorId)
-      .eq("requested_time", selectedTimeSlot)
+      .eq("requested_time", selectedSlots[mentorId])
       .in("status", ["requested", "confirmed"])
       .maybeSingle();
 
@@ -85,7 +164,7 @@ export default function StudentDashboard() {
       .insert({
         student_id: session.user.id,
         mentor_id: mentorId,
-        requested_time: selectedTimeSlot,
+        requested_time: selectedSlots[mentorId],
         status: "requested",
       });
 
@@ -95,7 +174,7 @@ export default function StudentDashboard() {
       return;
     }
 
-    window.location.reload();
+    await loadDashboardData();
 
   }
   async function handleRateSession(sessionId: string, rating: number) {
@@ -104,7 +183,7 @@ export default function StudentDashboard() {
       .update({ rating })
       .eq("id", sessionId);
 
-    window.location.reload();
+    await loadDashboardData();
   }
 
   async function handleRematch() {
@@ -123,7 +202,7 @@ export default function StudentDashboard() {
       .gte("created_at", todayStart.toISOString());
 
     await runMatching(session.user.id, profile?.subjects ?? null);
-    window.location.reload();
+    await loadDashboardData();
   }
 
   async function runMatching(studentId: string, studentSubjects: string[] | null) {
@@ -284,7 +363,14 @@ export default function StudentDashboard() {
     return subjectMatch && gradeMatch;
   });
 
-  if (loading) return null;
+  if (loading) return (
+    <main className="min-h-dvh bg-zinc-50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-zinc-900" />
+        <p className="text-sm text-zinc-500">Loading...</p>
+      </div>
+    </main>
+  );
 
   const matchedMentor = mentors.find((mentor) => mentor.id === matchedMentorId) ?? null;
 
@@ -292,10 +378,9 @@ export default function StudentDashboard() {
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <button onClick={() => router.push("/")} className="mb-3 rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50">← Home</button>
           <div className="text-lg font-semibold">Student Dashboard</div>
           <p className="mt-2 text-sm text-zinc-600">
-            Browse mentors and profile details in this milestone.
+            Welcome back! Here&apos;s your tutoring dashboard.
           </p>
         </div>
 
@@ -313,11 +398,26 @@ export default function StudentDashboard() {
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-base font-semibold">Edit Profile</div>
           <div className="mt-2 space-y-2">
-            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
-            <input value={gradeInput} onChange={(e) => setGradeInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Grade" />
-            <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
-            <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
-            <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Name</label>
+              <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Your full name" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Grade</label>
+              <input value={gradeInput} onChange={(e) => setGradeInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. 10th" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Subjects</label>
+              <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Math, Science, English" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Bio</label>
+              <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Tell mentors about yourself" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Availability</label>
+              <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. Weekdays after 4 PM" />
+            </div>
             <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
           </div>
         </div>
@@ -337,8 +437,8 @@ export default function StudentDashboard() {
                     <button
                       key={slot}
                       type="button"
-                      onClick={() => setSelectedTimeSlot(slot)}
-                      className={`rounded border px-3 py-1 text-xs ${selectedTimeSlot === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
+                      onClick={() => setSelectedSlots(prev => ({ ...prev, [matchedMentor.id]: slot }))}
+                      className={`rounded border px-3 py-1 text-xs ${selectedSlots[matchedMentor.id] === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
                     >
                       {slot}
                     </button>
@@ -441,8 +541,8 @@ export default function StudentDashboard() {
                         <button
                           key={slot}
                           type="button"
-                          onClick={() => setSelectedTimeSlot(slot)}
-                          className={`rounded border px-3 py-1 text-xs ${selectedTimeSlot === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
+                          onClick={() => setSelectedSlots(prev => ({ ...prev, [mentor.id]: slot }))}
+                          className={`rounded border px-3 py-1 text-xs ${selectedSlots[mentor.id] === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
                         >
                           {slot}
                         </button>
