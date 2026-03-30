@@ -39,6 +39,7 @@ export default function StudentDashboard() {
   const [currentSession, setCurrentSession] = useState<{ id: string; mentor_id: string; status: string } | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState(false);
 
   async function loadDashboardData() {
     const { data } = await supabase.auth.getSession();
@@ -384,45 +385,8 @@ export default function StudentDashboard() {
           </p>
         </div>
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="text-base font-semibold">Your Profile</div>
-          <div className="mt-2 space-y-1 text-sm text-zinc-700">
-            <div><span className="font-medium">Name:</span> {profile?.display_name || "Not set"}</div>
-            <div><span className="font-medium">Grade:</span> {profile?.grade || "Not set"}</div>
-            <div><span className="font-medium">Subjects:</span> {profile?.subjects?.join(", ") || "Not set"}</div>
-            <div><span className="font-medium">Bio:</span> {profile?.bio || "Not set"}</div>
-            <div><span className="font-medium">Availability:</span> {profile?.availability_preference || "Not set"}</div>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="text-base font-semibold">Edit Profile</div>
-          <div className="mt-2 space-y-2">
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Name</label>
-              <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Your full name" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Grade</label>
-              <input value={gradeInput} onChange={(e) => setGradeInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. 10th" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Subjects</label>
-              <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Math, Science, English" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Bio</label>
-              <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Tell mentors about yourself" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Availability</label>
-              <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. Weekdays after 4 PM" />
-            </div>
-            <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
-          </div>
-        </div>
         <div className="mt-4 rounded-2xl border bg-green-50 p-5 shadow-sm">
-          <div className="text-base font-semibold">Today’s Match</div>
+          <div className="text-base font-semibold">Today&apos;s Match</div>
           {matchedMentor ? (
             <div className="mt-2 space-y-2 text-sm text-zinc-700">
               <button onClick={handleRematch} className="ml-2 rounded border px-4 py-2 text-sm">Rematch</button>
@@ -463,46 +427,6 @@ export default function StudentDashboard() {
           )}
         </div>
 
-
-        <div className="mt-4 rounded-2xl border bg-yellow-50 p-5 shadow-sm">
-          <div className="text-base font-semibold">Pending Ratings</div>
-          <div className="mt-2 space-y-2 text-sm text-zinc-700">
-            {pendingRatings.length === 0 ? (
-              <p>No sessions to rate.</p>
-            ) : (
-              pendingRatings.map((session) => (
-                <div key={session.id} className="rounded border p-3">
-                  <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
-                  <div className="mt-2 space-x-2">
-                    {[1,2,3,4,5].map((r) => (
-                      <button key={r} onClick={() => handleRateSession(session.id, r)} className="rounded bg-yellow-400 px-2 py-1 text-xs">
-                        {r}★
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="text-base font-semibold">Recent Match History</div>
-          <div className="mt-2 space-y-2 text-sm text-zinc-700">
-            {matchHistory.length === 0 ? (
-              <p>No recent matches yet.</p>
-            ) : (
-              matchHistory.map((match, index) => (
-                <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border p-3">
-                  <div><span className="font-medium">Mentor:</span> {mentors.find((mentor) => mentor.id === match.mentor_id)?.display_name || "Unknown mentor"}</div>
-                  <div><span className="font-medium">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
           <div className="text-base font-semibold">Mentor Directory</div>
           <p className="mt-2 text-sm text-zinc-600">
@@ -510,8 +434,6 @@ export default function StudentDashboard() {
           </p>
           <input value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} className="mt-2 w-full rounded border p-2 text-sm" placeholder="Filter by grade" />
           <input value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="mt-3 w-full rounded border p-2 text-sm" placeholder="Filter by subject" />
-
-
           <div className="mt-4 grid gap-3">
             {mentors.length === 0 && (
               <div className="text-sm text-zinc-500">No mentors available yet.</div>
@@ -563,6 +485,88 @@ export default function StudentDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-base font-semibold">Your Profile</div>
+            <button onClick={() => setEditing(!editing)} className="rounded border px-3 py-1 text-xs hover:bg-zinc-50">
+              {editing ? "Cancel" : "Edit"}
+            </button>
+          </div>
+          {!editing ? (
+            <div className="mt-2 space-y-1 text-sm text-zinc-700">
+              <div><span className="font-medium">Name:</span> {profile?.display_name || "Not set"}</div>
+              <div><span className="font-medium">Grade:</span> {profile?.grade || "Not set"}</div>
+              <div><span className="font-medium">Subjects:</span> {profile?.subjects?.join(", ") || "Not set"}</div>
+              <div><span className="font-medium">Bio:</span> {profile?.bio || "Not set"}</div>
+              <div><span className="font-medium">Availability:</span> {profile?.availability_preference || "Not set"}</div>
+            </div>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Name</label>
+                <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Grade</label>
+                <input value={gradeInput} onChange={(e) => setGradeInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. 10th" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Subjects</label>
+                <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Math, Science, English" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Bio</label>
+                <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Tell mentors about yourself" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Availability</label>
+                <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. Weekdays after 4 PM" />
+              </div>
+              <button onClick={async () => { await handleSave(); setEditing(false); }} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="text-base font-semibold">Activity</div>
+          <div className="mt-3">
+            <div className="text-sm font-medium text-zinc-800">Pending Ratings</div>
+            <div className="mt-2 space-y-2 text-sm text-zinc-700">
+              {pendingRatings.length === 0 ? (
+                <p>No sessions to rate.</p>
+              ) : (
+                pendingRatings.map((session) => (
+                  <div key={session.id} className="rounded border p-3">
+                    <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
+                    <div className="mt-2 space-x-2">
+                      {[1,2,3,4,5].map((r) => (
+                        <button key={r} onClick={() => handleRateSession(session.id, r)} className="rounded bg-yellow-400 px-2 py-1 text-xs">
+                          {r}★
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="text-sm font-medium text-zinc-800">Recent Matches</div>
+            <div className="mt-2 space-y-2 text-sm text-zinc-700">
+              {matchHistory.length === 0 ? (
+                <p>No recent matches yet.</p>
+              ) : (
+                matchHistory.map((match, index) => (
+                  <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border p-3">
+                    <div><span className="font-medium">Mentor:</span> {mentors.find((mentor) => mentor.id === match.mentor_id)?.display_name || "Unknown mentor"}</div>
+                    <div><span className="font-medium">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
