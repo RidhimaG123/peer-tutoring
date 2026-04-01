@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BookOpen, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -52,8 +53,8 @@ export default function Nav() {
   return (
     <nav className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
       <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="text-sm font-semibold text-zinc-900">
-          Peer Tutoring
+        <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+          <BookOpen size={18} /> Peer Tutoring
         </Link>
 
         <div className="flex items-center gap-3 text-sm">
@@ -78,7 +79,7 @@ export default function Nav() {
                 }}
                 className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50 transition-colors"
               >
-                Log out
+                <span className="flex items-center gap-1"><LogOut size={14} /> Log out</span>
               </button>
             </>
           ) : (

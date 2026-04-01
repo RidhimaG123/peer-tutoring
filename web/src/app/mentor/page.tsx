@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
+import { User } from "lucide-react";
 
 type SessionRequest = {
   id: string;
@@ -189,7 +190,7 @@ export default function MentorDashboard() {
         </div>
 
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="text-base font-semibold">Your Profile</div>
+          <div className="text-base font-semibold flex items-center gap-2"><User size={16} /> Your Profile</div>
           <div className="mt-2 space-y-1 text-sm text-zinc-700">
             <div><span className="font-medium">Name:</span> {profile?.display_name || "Not set"}</div>
             <div><span className="font-medium">Headline:</span> {profile?.headline || "Not set"}</div>

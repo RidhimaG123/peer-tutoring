@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
+import { User, Star, Calendar } from "lucide-react";
 
 type MentorProfile = {
   id: string;
@@ -396,7 +397,7 @@ export default function StudentDashboard() {
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
               <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded bg-zinc-900 px-4 py-2 text-sm text-white">View Mentor Profile</a>
               <div className="mt-2">
-                <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
+                <div className="mb-2 text-xs font-medium text-zinc-700 flex items-center gap-1"><Calendar size={12} /> Choose a time slot</div>
                 <div className="flex flex-wrap gap-2">
                   {["Monday 4:00 PM", "Tuesday 5:00 PM", "Wednesday 6:00 PM"].map((slot) => (
                     <button
@@ -458,7 +459,7 @@ export default function StudentDashboard() {
                   {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
                 </div>
                   <div className="mt-3">
-                    <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
+                    <div className="mb-2 text-xs font-medium text-zinc-700 flex items-center gap-1"><Calendar size={12} /> Choose a time slot</div>
                     <div className="flex flex-wrap gap-2">
                       {["Monday 4:00 PM", "Tuesday 5:00 PM", "Wednesday 6:00 PM"].map((slot) => (
                         <button
@@ -491,7 +492,7 @@ export default function StudentDashboard() {
 
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-base font-semibold">Your Profile</div>
+            <div className="text-base font-semibold flex items-center gap-2"><User size={16} /> Your Profile</div>
             <button onClick={() => setEditing(!editing)} className="rounded border px-3 py-1 text-xs hover:bg-zinc-50">
               {editing ? "Cancel" : "Edit"}
             </button>
@@ -532,7 +533,7 @@ export default function StudentDashboard() {
         </div>
 
         <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="text-base font-semibold">Activity</div>
+          <div className="text-base font-semibold flex items-center gap-2"><Star size={16} /> Activity</div>
           <div className="mt-3">
             <div className="text-sm font-medium text-zinc-800">Pending Ratings</div>
             <div className="mt-2 space-y-2 text-sm text-zinc-700">
