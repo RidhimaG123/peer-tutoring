@@ -26,11 +26,19 @@ export default function Nav() {
 
     load();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
         setAuthed(false);
         setRole(null);
+        return;
       }
+      setAuthed(true);
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+      if (profile) setRole(profile.role);
     });
 
     return () => {

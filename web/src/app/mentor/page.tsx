@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Button from "@/components/Button";
 
 type SessionRequest = {
   id: string;
@@ -221,7 +222,7 @@ export default function MentorDashboard() {
               <label className="block text-xs font-medium text-zinc-700 mb-1">Availability</label>
               <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. Mon-Wed after 3 PM" />
             </div>
-            <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
+            <Button variant="primary" onClick={handleSave} className="mt-2">Save</Button>
           </div>
         </div>
 
@@ -241,12 +242,12 @@ export default function MentorDashboard() {
                   <div><span className="font-medium">Status:</span> {request.status}</div>
                   {request.status === "requested" && (
                     <div className="mt-2 flex gap-2">
-                      <button onClick={() => handleAcceptSession(request.id)} className="rounded bg-green-600 px-3 py-1 text-xs text-white">Accept</button>
-                      <button onClick={() => handleDeclineSession(request.id)} className="rounded bg-zinc-300 px-3 py-1 text-xs text-zinc-900">Decline</button>
+                      <Button variant="accent" onClick={() => handleAcceptSession(request.id)}>Accept</Button>
+                      <Button variant="secondary" onClick={() => handleDeclineSession(request.id)}>Decline</Button>
                     </div>
                   )}
                   {request.status === "confirmed" && (
-                    <button onClick={() => handleCompleteSession(request.id)} className="mt-2 ml-2 rounded bg-blue-600 px-3 py-1 text-xs text-white">Mark Complete</button>
+                    <Button variant="accent" onClick={() => handleCompleteSession(request.id)} className="mt-2 ml-2">Mark Complete</Button>
                   )}
                 </div>
               ))

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Button from "@/components/Button";
 
 type MentorProfile = {
   id: string;
@@ -389,7 +390,7 @@ export default function StudentDashboard() {
           <div className="text-base font-semibold">Today&apos;s Match</div>
           {matchedMentor ? (
             <div className="mt-2 space-y-2 text-sm text-zinc-700">
-              <button onClick={handleRematch} className="ml-2 rounded border px-4 py-2 text-sm">Rematch</button>
+              <Button variant="secondary" onClick={handleRematch} className="ml-2">Rematch</Button>
               <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
               <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
@@ -409,7 +410,7 @@ export default function StudentDashboard() {
                   ))}
                 </div>
               </div>
-              <button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
+              <Button variant="primary" onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">Request Session</Button>
               {currentSession && currentSession.mentor_id === matchedMentor.id && (
                 <div className="mt-2 rounded border bg-white p-3 text-xs">
                   <span className="font-medium">Session Status:</span> {
@@ -471,7 +472,7 @@ export default function StudentDashboard() {
                       ))}
                     </div>
                   </div>
-                  <button disabled={requesting} onClick={() => handleRequestSession(mentor.id)} className="mt-3 rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed">{requesting ? "Requesting..." : "Request Session"}</button>
+                  <Button variant="primary" disabled={requesting} onClick={() => handleRequestSession(mentor.id)} className="mt-3">{requesting ? "Requesting..." : "Request Session"}</Button>
                   {currentSession && currentSession.mentor_id === mentor.id && (
                     <div className="mt-2 rounded border bg-white p-2 text-xs">
                       <span className="font-medium">Status:</span> {
@@ -525,7 +526,7 @@ export default function StudentDashboard() {
                 <label className="block text-xs font-medium text-zinc-700 mb-1">Availability</label>
                 <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="e.g. Weekdays after 4 PM" />
               </div>
-              <button onClick={async () => { await handleSave(); setEditing(false); }} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
+              <Button variant="primary" onClick={async () => { await handleSave(); setEditing(false); }} className="mt-2">Save</Button>
             </div>
           )}
         </div>

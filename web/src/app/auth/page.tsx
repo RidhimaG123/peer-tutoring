@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Button from "@/components/Button";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -86,19 +87,8 @@ export default function AuthPage() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <button
-                className="flex-1 rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-800"
-                type="submit"
-              >
-                Sign in
-              </button>
-              <button
-                className="flex-1 rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50"
-                type="button"
-                onClick={signUp}
-              >
-                Sign up
-              </button>
+              <Button variant="primary" type="submit" className="flex-1">Sign in</Button>
+              <Button variant="secondary" type="button" onClick={signUp} className="flex-1">Sign up</Button>
             </div>
 
             <div className="pt-2 text-xs text-zinc-600">{status}</div>
