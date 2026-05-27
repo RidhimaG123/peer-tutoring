@@ -177,6 +177,20 @@ export default function StudentDashboard() {
       return;
     }
 
+    // Send confirmation emails
+    try {
+      const { data: mentorRow } = await supabase.from("profiles").select("display_name, email").eq("id", mentorId).single();
+      const studentEmail = session.user.email ?? "";
+      const mentorEmail = (mentorRow as { display_name: string | null; email?: string } | null)?.email ?? "";
+      const studentName = profile?.display_name ?? "";
+      const mentorName = (mentorRow as { display_name: string | null } | null)?.display_name ?? "";
+      const slot = selectedSlots[mentorId];
+      if (studentEmail && mentorEmail) {
+        await fetch("/api/send-confirmation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentEmail, studentName, mentorEmail, mentorName, slot }) });
+      }
+    } catch (emailErr) {
+      console.error("email send error (non-fatal):", emailErr);
+    }
     await loadDashboardData();
 
   }
