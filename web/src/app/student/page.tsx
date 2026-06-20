@@ -42,6 +42,7 @@ export default function StudentDashboard() {
   const [requesting, setRequesting] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState(false);
+  const [feedbackInputs, setFeedbackInputs] = useState<Record<string, string>>({});
 
   async function loadDashboardData() {
     const { data } = await supabase.auth.getSession();
@@ -197,9 +198,10 @@ export default function StudentDashboard() {
   async function handleRateSession(sessionId: string, rating: number) {
     await supabase
       .from("sessions")
-      .update({ rating })
+      .update({ rating, feedback: feedbackInputs[sessionId] ?? null })
       .eq("id", sessionId);
 
+    setFeedbackInputs(prev => { const n = {...prev}; delete n[sessionId]; return n; });
     await loadDashboardData();
   }
 
@@ -561,6 +563,10 @@ export default function StudentDashboard() {
                 pendingRatings.map((session) => (
                   <div key={session.id} className="rounded border p-3">
                     <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-zinc-700 mb-1">Feedback for your mentor (optional)</label>
+                      <textarea value={feedbackInputs[session.id] ?? ""} onChange={(e) => setFeedbackInputs(prev => ({ ...prev, [session.id]: e.target.value }))} className="w-full rounded border p-2 text-sm resize-none" rows={2} placeholder="What went well? What could improve?" />
+                    </div>
                     <div className="mt-2 space-x-2">
                       {[1,2,3,4,5].map((r) => (
                         <button key={r} onClick={() => handleRateSession(session.id, r)} className="rounded bg-yellow-400 px-2 py-1 text-xs">
