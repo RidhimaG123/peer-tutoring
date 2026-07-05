@@ -68,6 +68,8 @@ export default function StudentDashboard() {
       .from("matches")
       .select("mentor_id")
       .eq("student_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
     setMatchedMentorId(matchData?.mentor_id ?? null);
 
@@ -307,6 +309,8 @@ export default function StudentDashboard() {
         .from("matches")
         .select("mentor_id")
         .eq("student_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       setMatchedMentorId(matchData?.mentor_id ?? null);
