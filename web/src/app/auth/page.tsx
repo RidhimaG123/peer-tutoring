@@ -9,6 +9,7 @@ export default function AuthPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("student");
   const [status, setStatus] = useState<string>("");
 
@@ -32,12 +33,21 @@ export default function AuthPage() {
 
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
+
+    if (password !== confirmPassword) {
+      setStatus("Error: Passwords do not match");
+      return;
+    }
+
     setStatus("Signing up...");
 
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { role } },
+      options: {
+        data: { role },
+        emailRedirectTo: `${window.location.origin}/auth`,
+      },
     });
 
     if (error) {
@@ -79,6 +89,17 @@ export default function AuthPage() {
                 type="password"
                 autoComplete="current-password"
                 required
+              />
+            </label>
+
+            <label className="block">
+              <div className="text-xs font-medium text-zinc-700">Confirm password (for sign up)</div>
+              <input
+                className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                type="password"
+                autoComplete="new-password"
               />
             </label>
             <div className="flex gap-2">
