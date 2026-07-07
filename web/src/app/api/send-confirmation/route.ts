@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
-  const { studentEmail, studentName, mentorEmail, mentorName, slot } =
-    await req.json();
+  const { studentEmail, studentName, mentorId, slot } = await req.json();
 
   const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!resendKey || !supabaseUrl || !serviceRoleKey) {
     return NextResponse.json({ error: "Email not configured" }, { status: 500 });
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+  const { data: mentorRow } = await supabaseAdmin
+    .from("profiles")
+    .select("display_name, email")
+    .eq("id", mentorId)
+    .single();
+
+  const mentorEmail = mentorRow?.email ?? "";
+  const mentorName = mentorRow?.display_name ?? "";
+  if (!studentEmail || !mentorEmail) {
+    return NextResponse.json({ error: "Missing recipient email" }, { status: 400 });
   }
 
   const subject = `Peer Tutoring session requested — ${slot}`;
