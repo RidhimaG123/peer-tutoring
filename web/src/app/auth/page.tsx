@@ -48,6 +48,26 @@ export default function AuthPage() {
     setStatus("Signed up ✅ (check email if confirmation is enabled)");
   }
 
+  async function handleForgotPassword() {
+    if (!email) {
+      setStatus("Error: Enter your email above first");
+      return;
+    }
+
+    setStatus("Sending reset email...");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    if (error) {
+      setStatus(`Error: ${error.message}`);
+      return;
+    }
+
+    setStatus("Password reset email sent ✅ Check your inbox.");
+  }
+
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-md px-4 py-10">
@@ -80,6 +100,13 @@ export default function AuthPage() {
                 autoComplete="current-password"
                 required
               />
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="mt-1 text-xs text-zinc-500 underline hover:text-zinc-700"
+              >
+                Forgot password?
+              </button>
             </label>
             <div className="flex gap-2">
               <button type="button" onClick={() => setRole("student")} className={`flex-1 rounded-xl border px-3 py-2 text-sm ${role === "student" ? "bg-zinc-900 text-white" : ""}`}>Student</button>
