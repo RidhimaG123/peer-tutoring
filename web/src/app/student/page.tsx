@@ -6,6 +6,23 @@ import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
 import { User, Star, Calendar } from "lucide-react";
 
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const PERIODS = ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"];
+
+// Weekday labels alone are ambiguous (which week?), so each slot is pinned to
+// the next actual occurrence of that weekday, including today.
+function getUpcomingSlots(): string[] {
+  const today = new Date();
+  return WEEKDAYS.flatMap((day, i) => {
+    const targetDow = i + 1; // Mon=1 ... Fri=5
+    const diff = (targetDow - today.getDay() + 7) % 7;
+    const date = new Date(today);
+    date.setDate(today.getDate() + diff);
+    const dateLabel = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return PERIODS.map((time) => `${day} ${dateLabel} · ${time}`);
+  });
+}
+
 type MentorProfile = {
   id: string;
   display_name: string | null;
@@ -419,9 +436,7 @@ export default function StudentDashboard() {
               <div className="mt-2">
                 <div className="mb-2 text-xs font-medium text-zinc-700 flex items-center gap-1"><Calendar size={12} /> Choose a time slot</div>
                 <div className="flex flex-wrap gap-2">
-                  {["Mon", "Tue", "Wed", "Thu", "Fri"].flatMap((day) =>
-                    ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"].map((time) => `${day} ${time}`)
-                  ).map((slot) => (
+                  {getUpcomingSlots().map((slot) => (
                     <button
                       key={slot}
                       type="button"
@@ -483,9 +498,7 @@ export default function StudentDashboard() {
                   <div className="mt-3">
                     <div className="mb-2 text-xs font-medium text-zinc-700 flex items-center gap-1"><Calendar size={12} /> Choose a time slot</div>
                     <div className="flex flex-wrap gap-2">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri"].flatMap((day) =>
-                        ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"].map((time) => `${day} ${time}`)
-                      ).map((slot) => (
+                      {getUpcomingSlots().map((slot) => (
                         <button
                           key={slot}
                           type="button"
