@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
@@ -59,6 +59,7 @@ export default function StudentDashboard() {
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
   const [currentSession, setCurrentSession] = useState<{ id: string; mentor_id: string; status: string } | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const requestingRef = useRef(false);
   const [selectedSlots, setSelectedSlots] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState(false);
   const [feedbackInputs, setFeedbackInputs] = useState<Record<string, string>>({});
@@ -165,54 +166,101 @@ export default function StudentDashboard() {
   }
 
   async function handleRequestSession(mentorId: string) {
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
-    if (requesting || !session || !mentorId || !selectedSlots[mentorId]) return;
-
+    // requestingRef is a synchronous lock: a rapid double-tap fires this
+    // function twice before React re-renders to disable the button, and
+    // both calls would otherwise read the same stale `requesting` state.
+    if (requestingRef.current || !mentorId || !selectedSlots[mentorId]) return;
+    requestingRef.current = true;
     setRequesting(true);
 
-    const { data: existingRequest } = await supabase
-      .from("sessions")
-      .select("id")
-      .eq("student_id", session.user.id)
-      .eq("mentor_id", mentorId)
-      .eq("requested_time", selectedSlots[mentorId])
-      .in("status", ["requested", "confirmed"])
-      .maybeSingle();
-
-    if (existingRequest) {
-      setRequesting(false);
-      return;
-    }
-    const { error } = await supabase
-      .from("sessions")
-      .insert({
-        student_id: session.user.id,
-        mentor_id: mentorId,
-        requested_time: selectedSlots[mentorId],
-        status: "requested",
-      });
-
-    if (error) {
-      setRequesting(false);
-      console.error("request session error", error);
-      return;
-    }
-
-    // Send confirmation emails. The mentor's email is looked up server-side
-    // (see /api/send-confirmation) so the client never queries it directly.
     try {
-      const studentEmail = session.user.email ?? "";
-      const studentName = profile?.display_name ?? "";
-      const slot = selectedSlots[mentorId];
-      if (studentEmail) {
-        await fetch("/api/send-confirmation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentEmail, studentName, mentorId, slot }) });
-      }
-    } catch (emailErr) {
-      console.error("email send error (non-fatal):", emailErr);
-    }
-    await loadDashboardData();
+      const { data: existingRequest } = await supabase
+        .from("sessions")
+        .select("id")
+        .eq("student_id", session.user.id)
+        .eq("mentor_id", mentorId)
+        .eq("requested_time", selectedSlots[mentorId])
+        .in("status", ["requested", "confirmed"])
+        .maybeSingle();
 
+      if (existingRequest) {
+        return;
+      }
+      const { error } = await supabase
+        .from("sessions")
+        .insert({
+          student_id: session.user.id,
+          mentor_id: mentorId,
+          requested_time: selectedSlots[mentorId],
+          status: "requested",
+        });
+
+      if (error) {
+        console.error("request session error", error);
+        return;
+      }
+      try {
+        const studentEmail = session.user.email ?? "";
+        const studentName = profile?.display_name ?? "";
+        const slot = selectedSlots[mentorId];
+        if (studentEmail) {
+          await fetch("/api/send-confirmation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentEmail, studentName, mentorId, slot }) });
+        }
+      } catch (emailErr) {
+        console.error("email send error (non-fatal):", emailErr);
+      }
+      await loadDashboardData();
+    } finally {
+      requestingRef.current = false;
+      setRequesting(false);
+    }
+  }
+
+      const { data: existingRequest } = await supabase
+        .from("sessions")
+        .select("id")
+        .eq("student_id", session.user.id)
+        .eq("mentor_id", mentorId)
+        .eq("requested_time", selectedSlots[mentorId])
+        .in("status", ["requested", "confirmed"])
+        .maybeSingle();
+
+      if (existingRequest) {
+        return;
+      }
+      const { error } = await supabase
+        .from("sessions")
+        .insert({
+          student_id: session.user.id,
+          mentor_id: mentorId,
+          requested_time: selectedSlots[mentorId],
+          status: "requested",
+        });
+
+      if (error) {
+        console.error("request session error", error);
+        return;
+      }
+
+      // Send confirmation emails
+      try {
+        const { data: mentorRow } = await supabase.from("profiles").select("display_name, email").eq("id", mentorId).single();
+        const studentEmail = session.user.email ?? "";
+        const mentorEmail = (mentorRow as { display_name: string | null; email?: string } | null)?.email ?? "";
+        const studentName = profile?.display_name ?? "";
+        const mentorName = (mentorRow as { display_name: string | null } | null)?.display_name ?? "";
+        const slot = selectedSlots[mentorId];
+        if (studentEmail && mentorEmail) {
+          await fetch("/api/send-confirmation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentEmail, studentName, mentorEmail, mentorName, slot }) });
+        }
+      } catch (emailErr) {
+        console.error("email send error (non-fatal):", emailErr);
+      }
+      await loadDashboardData();
+    } finally {
+      requestingRef.current = false;
+      setRequesting(false);
+    }
   }
   async function handleRateSession(sessionId: string, rating: number) {
     await supabase
@@ -468,7 +516,7 @@ export default function StudentDashboard() {
                   ))}
                 </div>
               </div>
-              <Button variant="primary" onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">Request Session</Button>
+              <Button variant="primary" disabled={requesting} onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">{requesting ? "Requesting..." : "Request Session"}</Button>
               {currentSession && currentSession.mentor_id === matchedMentor.id && (
                 <div className="mt-2 rounded border bg-white p-3 text-xs">
                   <span className="font-medium">Session Status:</span> {
