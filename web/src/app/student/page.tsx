@@ -40,7 +40,7 @@ export default function StudentDashboard() {
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
-  const [currentSession, setCurrentSession] = useState<{ id: string; mentor_id: string; status: string } | null>(null);
+  const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; created_at: string; mentor: { display_name: string | null } | null }[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
   async function handleSave() {
@@ -227,20 +227,17 @@ export default function StudentDashboard() {
           .select("mentor_id, rating")
           .not("rating", "is", null);
 
-        const currentSessionTodayStart = new Date();
-        currentSessionTodayStart.setHours(0, 0, 0, 0);
-
-        const { data: currentSessionData } = await supabase
+        const { data: bookedSessionsData } = await supabase
           .from("sessions")
-          .select("id, mentor_id, status")
+          .select("id, status, requested_time, created_at, mentor:profiles!sessions_mentor_id_fkey(display_name)")
           .eq("student_id", session.user.id)
           .in("status", ["requested", "confirmed", "declined"])
-          .gte("created_at", currentSessionTodayStart.toISOString())
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .order("created_at", { ascending: false });
 
-        setCurrentSession(currentSessionData ?? null);
+        setBookedSessions((bookedSessionsData ?? []).map((s) => ({
+          ...s,
+          mentor: Array.isArray(s.mentor) ? s.mentor[0] ?? null : s.mentor,
+        })));
 
 
         const { data: mentorsData } = await supabase
@@ -327,31 +324,40 @@ export default function StudentDashboard() {
               <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
               <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors">View Mentor Profile</a>
-              {currentSession && currentSession.mentor_id === matchedMentor.id && currentSession.status === "requested" ? (
-                <div className="mt-2 rounded border bg-white p-3 text-xs">
-                  You have a pending session request.
-                </div>
-              ) : (
-                <>
-                  <div className="mt-2">
-                    <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
-                  </div>
-                  <Button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">Request Session</Button>
-                </>
-              )}
-              {currentSession && currentSession.mentor_id === matchedMentor.id && currentSession.status !== "requested" && (
-                <div className="mt-2 rounded border bg-white p-3 text-xs">
-                  <span className="font-medium">Session Status:</span> {
-                    currentSession.status === "confirmed" ? "Accepted ✅" :
-                    currentSession.status === "declined" ? "Declined ❌" :
-                    currentSession.status
-                  }
-                </div>
-              )}
+              <div className="mt-2">
+                <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
+              </div>
+              <Button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">Request Session</Button>
             </div>
           ) : (
             <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
           )}
+        </Card>
+
+        <Card className="mt-4">
+          <div className="text-base font-semibold">Session Status</div>
+          <div className="mt-2 space-y-2 text-sm text-zinc-700">
+            {bookedSessions.length === 0 ? (
+              <p>No sessions booked yet.</p>
+            ) : (
+              bookedSessions.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-3 rounded border p-3">
+                  <div>
+                    <div><span className="font-medium">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                    <div><span className="font-medium">Time slot:</span> {s.requested_time || "Not selected"}</div>
+                    <div><span className="font-medium">Date requested:</span> {new Date(s.created_at).toLocaleDateString()}</div>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    s.status === "requested" ? "bg-yellow-100 text-yellow-800" :
+                    s.status === "confirmed" ? "bg-green-100 text-green-800" :
+                    "bg-red-100 text-red-800"
+                  }`}>
+                    {s.status === "requested" ? "Pending" : s.status === "confirmed" ? "Confirmed" : "Declined"}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         </Card>
 
 
@@ -436,27 +442,10 @@ export default function StudentDashboard() {
                 <div className="mt-1 text-xs text-zinc-500">
                   {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
                 </div>
-                  {currentSession && currentSession.mentor_id === mentor.id && currentSession.status === "requested" ? (
-                    <div className="mt-3 rounded border bg-white p-2 text-xs">
-                      You have a pending session request.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mt-3">
-                        <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
-                      </div>
-                      <Button onClick={() => handleRequestSession(mentor.id)} className="mt-3">Request Session</Button>
-                    </>
-                  )}
-                  {currentSession && currentSession.mentor_id === mentor.id && currentSession.status !== "requested" && (
-                    <div className="mt-2 rounded border bg-white p-2 text-xs">
-                      <span className="font-medium">Status:</span> {
-                        currentSession.status === "confirmed" ? "Accepted ✅" :
-                        currentSession.status === "declined" ? "Declined ❌" :
-                        currentSession.status
-                      }
-                    </div>
-                  )}
+                  <div className="mt-3">
+                    <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
+                  </div>
+                  <Button onClick={() => handleRequestSession(mentor.id)} className="mt-3">Request Session</Button>
                 </div>
               </div>
             ))}
