@@ -154,103 +154,108 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     async function checkAccess() {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
 
-      if (!session) {
-        router.replace("/auth");
-        return;
+        if (!session) {
+          setLoading(false);
+          router.replace("/auth");
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, display_name, grade, bio, subjects, availability_preference")
+          .eq("id", session.user.id)
+          .single();
+
+        setProfile(profile);
+
+        if (profile) {
+          setNameInput(profile.display_name || "");
+          setGradeInput(profile.grade || "");
+          setSubjectsInput(profile.subjects?.join(", ") || "");
+          setBioInput(profile.bio || "");
+          setAvailabilityInput(profile.availability_preference || "");
+        }
+        if (profile) {
+          await runMatching(session.user.id, profile.subjects);
+        }
+
+
+
+        if (profile?.role !== "student") {
+          setLoading(false);
+          router.replace("/");
+          return;
+        }
+
+        const { data: matchData } = await supabase
+          .from("matches")
+          .select("mentor_id")
+          .eq("student_id", session.user.id)
+          .maybeSingle();
+
+        setMatchedMentorId(matchData?.mentor_id ?? null);
+
+        const { data: historyData } = await supabase
+          .from("matches")
+          .select("mentor_id, created_at")
+          .eq("student_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(7);
+
+        setMatchHistory(historyData ?? []);
+
+        const { data: pendingRatingData } = await supabase
+          .from("sessions")
+          .select("id, mentor_id, created_at")
+          .eq("student_id", session.user.id)
+          .eq("status", "completed")
+          .is("rating", null)
+          .order("created_at", { ascending: false });
+
+        setPendingRatings(pendingRatingData ?? []);
+        const { data: ratingData } = await supabase
+          .from("sessions")
+          .select("mentor_id, rating")
+          .not("rating", "is", null);
+
+        const { data: currentSessionData } = await supabase
+          .from("sessions")
+          .select("id, mentor_id, status")
+          .eq("student_id", session.user.id)
+          .in("status", ["requested", "confirmed", "declined"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        setCurrentSession(currentSessionData ?? null);
+
+
+        const { data: mentorsData } = await supabase
+          .from("profiles")
+          .select("id, display_name, headline, bio, subjects")
+          .eq("role", "mentor")
+          .order("created_at", { ascending: false });
+
+        const mentorsWithRatings = (mentorsData ?? []).map((mentor) => {
+          const mentorRatings = (ratingData ?? [])
+            .filter((session) => session.mentor_id === mentor.id)
+            .map((session) => session.rating as number);
+
+          const average_rating = mentorRatings.length > 0
+            ? mentorRatings.reduce((sum, rating) => sum + rating, 0) / mentorRatings.length
+            : null;
+
+          return { ...mentor, average_rating };
+        });
+
+        setMentors(mentorsWithRatings);
+      } finally {
+        setLoading(false);
       }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, display_name, grade, bio, subjects, availability_preference")
-        .eq("id", session.user.id)
-        .single();
-
-      setProfile(profile);
-
-      if (profile) {
-        setNameInput(profile.display_name || "");
-        setGradeInput(profile.grade || "");
-        setSubjectsInput(profile.subjects?.join(", ") || "");
-        setBioInput(profile.bio || "");
-        setAvailabilityInput(profile.availability_preference || "");
-      }
-      if (profile) {
-        await runMatching(session.user.id, profile.subjects);
-      }
-
-
-
-      if (profile?.role !== "student") {
-        router.replace("/");
-        return;
-      }
-
-      const { data: matchData } = await supabase
-        .from("matches")
-        .select("mentor_id")
-        .eq("student_id", session.user.id)
-        .maybeSingle();
-
-      setMatchedMentorId(matchData?.mentor_id ?? null);
-
-      const { data: historyData } = await supabase
-        .from("matches")
-        .select("mentor_id, created_at")
-        .eq("student_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(7);
-
-      setMatchHistory(historyData ?? []);
-
-      const { data: pendingRatingData } = await supabase
-        .from("sessions")
-        .select("id, mentor_id, created_at")
-        .eq("student_id", session.user.id)
-        .eq("status", "completed")
-        .is("rating", null)
-        .order("created_at", { ascending: false });
-
-      setPendingRatings(pendingRatingData ?? []);
-      const { data: ratingData } = await supabase
-        .from("sessions")
-        .select("mentor_id, rating")
-        .not("rating", "is", null);
-
-      const { data: currentSessionData } = await supabase
-        .from("sessions")
-        .select("id, mentor_id, status")
-        .eq("student_id", session.user.id)
-        .in("status", ["requested", "confirmed", "declined"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      setCurrentSession(currentSessionData ?? null);
-
-
-      const { data: mentorsData } = await supabase
-        .from("profiles")
-        .select("id, display_name, headline, bio, subjects")
-        .eq("role", "mentor")
-        .order("created_at", { ascending: false });
-
-      const mentorsWithRatings = (mentorsData ?? []).map((mentor) => {
-        const mentorRatings = (ratingData ?? [])
-          .filter((session) => session.mentor_id === mentor.id)
-          .map((session) => session.rating as number);
-
-        const average_rating = mentorRatings.length > 0
-          ? mentorRatings.reduce((sum, rating) => sum + rating, 0) / mentorRatings.length
-          : null;
-
-        return { ...mentor, average_rating };
-      });
-
-      setMentors(mentorsWithRatings);
-      setLoading(false);
     }
 
     checkAccess();
