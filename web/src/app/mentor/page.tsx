@@ -84,6 +84,18 @@ export default function MentorDashboard() {
   const [bioInput, setBioInput] = useState("");
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [requests, setRequests] = useState<SessionRequest[]>([]);
+  const [mentorId, setMentorId] = useState<string | null>(null);
+
+  async function loadSessionRequests(mentorId: string) {
+    const { data: sessionRequests } = await supabase
+      .from("sessions")
+      .select("id, student_id, status, created_at, requested_time, student:profiles!sessions_student_id_fkey(display_name, bio, subjects, grade)")
+      .in("status", ["requested", "confirmed"])
+      .eq("mentor_id", mentorId)
+      .order("created_at", { ascending: false });
+
+    setRequests((sessionRequests ?? []).map(r => ({ ...r, student: Array.isArray(r.student) ? r.student[0] ?? null : r.student })));
+  }
 
   useEffect(() => {
     async function checkAccess() {
@@ -115,22 +127,25 @@ export default function MentorDashboard() {
         setAvailabilityInput(profile.availability_preference || "");
       }
 
-      const { data: sessionRequests } = await supabase
-        .from("sessions")
-        .select("id, student_id, status, created_at, requested_time, student:profiles!sessions_student_id_fkey(display_name, bio, subjects, grade)")
-        .in("status", ["requested", "confirmed"])
-        .eq("mentor_id", session.user.id)
-        .order("created_at", { ascending: false });
-
-      setRequests((sessionRequests ?? []).map(r => ({ ...r, student: Array.isArray(r.student) ? r.student[0] ?? null : r.student })));
-
-
+      setMentorId(session.user.id);
+      await loadSessionRequests(session.user.id);
 
       setLoading(false);
     }
 
     checkAccess();
   }, [router]);
+
+  useEffect(() => {
+    function handleFocus() {
+      if (mentorId) {
+        loadSessionRequests(mentorId);
+      }
+    }
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [mentorId]);
 
   if (loading) return null;
 
