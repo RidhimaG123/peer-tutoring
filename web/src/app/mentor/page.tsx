@@ -41,17 +41,21 @@ export default function MentorDashboard() {
     window.location.reload();
   }
   async function handleDeclineSession(sessionId: string) {
-    const { error } = await supabase
-      .from("sessions")
-      .update({ status: "declined" })
-      .eq("id", sessionId);
+    try {
+      const { error } = await supabase
+        .from("sessions")
+        .update({ status: "declined" })
+        .eq("id", sessionId);
 
-    if (error) {
-      console.error("decline session error", error);
-      return;
+      if (error) {
+        console.error("decline session error", error);
+        return;
+      }
+
+      setRequests((prev) => prev.filter((r) => r.id !== sessionId));
+    } catch (err) {
+      console.error("decline session threw", err);
     }
-
-    setRequests((prev) => prev.filter((r) => r.id !== sessionId));
   }
   async function handleCompleteSession(sessionId: string) {
     await supabase
