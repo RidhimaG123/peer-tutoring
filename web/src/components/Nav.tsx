@@ -75,7 +75,7 @@ export default function Nav() {
               <button
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  window.location.href = "/";
+                  setTimeout(() => { window.location.href = "/"; }, 500);
                 }}
                 className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50 transition-colors"
               >
