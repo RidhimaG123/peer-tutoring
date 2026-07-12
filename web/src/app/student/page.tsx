@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Star } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
@@ -41,6 +42,7 @@ export default function StudentDashboard() {
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
   const [currentSession, setCurrentSession] = useState<{ id: string; mentor_id: string; status: string } | null>(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -351,12 +353,23 @@ export default function StudentDashboard() {
               pendingRatings.map((session) => (
                 <div key={session.id} className="rounded border p-3">
                   <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
-                  <div className="mt-2 space-x-2">
-                    {[1,2,3,4,5].map((r) => (
-                      <button key={r} onClick={() => handleRateSession(session.id, r)} className="rounded bg-yellow-400 px-2 py-1 text-xs">
-                        {r}★
-                      </button>
-                    ))}
+                  <div className="mt-2 flex gap-1">
+                    {[1, 2, 3, 4, 5].map((r) => {
+                      const isFilled = r <= (hoveredRating?.sessionId === session.id ? hoveredRating.rating : 0);
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => handleRateSession(session.id, r)}
+                          onMouseEnter={() => setHoveredRating({ sessionId: session.id, rating: r })}
+                          onMouseLeave={() => setHoveredRating(null)}
+                          aria-label={`Rate ${r} star${r === 1 ? "" : "s"}`}
+                          className="text-yellow-400 hover:scale-110 transition-transform"
+                        >
+                          <Star size={18} fill={isFilled ? "currentColor" : "none"} strokeWidth={1.5} />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))
