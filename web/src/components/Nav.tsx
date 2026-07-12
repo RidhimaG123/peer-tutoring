@@ -11,36 +11,34 @@ export default function Nav() {
   const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-      if (!session) return;
-      setAuthed(true);
-
+    async function loadRole(userId: string) {
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", session.user.id)
+        .eq("id", userId)
         .single();
 
       if (profile) setRole(profile.role);
     }
 
+    async function load() {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      if (!session) return;
+      setAuthed(true);
+      await loadRole(session.user.id);
+    }
+
     load();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         setAuthed(false);
         setRole(null);
         return;
       }
       setAuthed(true);
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-      if (profile) setRole(profile.role);
+      loadRole(session.user.id);
     });
 
     return () => {
