@@ -316,7 +316,9 @@ export default function StudentDashboard() {
               <div className="mt-2">
                 <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
                 <div className="flex flex-wrap gap-2">
-                  {["Monday 4:00 PM", "Tuesday 5:00 PM", "Wednesday 6:00 PM"].map((slot) => (
+                  {["Mon", "Tue", "Wed", "Thu", "Fri"].flatMap((day) =>
+                    ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"].map((time) => `${day} ${time}`)
+                  ).map((slot) => (
                     <button
                       key={slot}
                       type="button"
@@ -419,7 +421,9 @@ export default function StudentDashboard() {
                   <div className="mt-3">
                     <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
                     <div className="flex flex-wrap gap-2">
-                      {["Monday 4:00 PM", "Tuesday 5:00 PM", "Wednesday 6:00 PM"].map((slot) => (
+                      {["Mon", "Tue", "Wed", "Thu", "Fri"].flatMap((day) =>
+                        ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"].map((time) => `${day} ${time}`)
+                      ).map((slot) => (
                         <button
                           key={slot}
                           type="button"
