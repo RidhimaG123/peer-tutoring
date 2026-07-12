@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Button from "@/components/Button";
+import Card from "@/components/Card";
 
 type SessionRequest = {
   id: string;
@@ -135,15 +137,15 @@ export default function MentorDashboard() {
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <button onClick={() => router.push("/")} className="mb-3 rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50">← Home</button>
+        <Card>
+          <Button variant="secondary" onClick={() => router.push("/")} className="mb-3">← Home</Button>
           <div className="text-lg font-semibold">Mentor Dashboard</div>
           <p className="mt-2 text-sm text-zinc-600">
             Milestone 1 complete: protected mentor view.
           </p>
-        </div>
+        </Card>
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <Card className="mt-4">
           <div className="text-base font-semibold">Your Profile</div>
           <div className="mt-2 space-y-1 text-sm text-zinc-700">
             <div><span className="font-medium">Name:</span> {profile?.display_name || "Not set"}</div>
@@ -152,9 +154,9 @@ export default function MentorDashboard() {
             <div><span className="font-medium">Bio:</span> {profile?.bio || "Not set"}</div>
             <div><span className="font-medium">Availability:</span> {profile?.availability_preference || "Not set"}</div>
           </div>
-        </div>
+        </Card>
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <Card className="mt-4">
           <div className="text-base font-semibold">Edit Profile</div>
           <div className="mt-2 space-y-2">
             <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
@@ -162,11 +164,11 @@ export default function MentorDashboard() {
             <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
             <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
             <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
-            <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
+            <Button onClick={handleSave} className="mt-2">Save</Button>
           </div>
-        </div>
+        </Card>
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <Card className="mt-4">
           <div className="text-base font-semibold">Session Requests</div>
           <div className="mt-2 space-y-2 text-sm text-zinc-700">
             {requests.length === 0 ? (
@@ -182,18 +184,18 @@ export default function MentorDashboard() {
                   <div><span className="font-medium">Status:</span> {request.status}</div>
                   {request.status === "requested" && (
                     <div className="mt-2 flex gap-2">
-                      <button onClick={() => handleAcceptSession(request.id)} className="rounded bg-green-600 px-3 py-1 text-xs text-white">Accept</button>
-                      <button onClick={() => handleDeclineSession(request.id)} className="rounded bg-zinc-300 px-3 py-1 text-xs text-zinc-900">Decline</button>
+                      <Button variant="accent" onClick={() => handleAcceptSession(request.id)} className="!px-3 !py-1 !text-xs">Accept</Button>
+                      <Button variant="secondary" onClick={() => handleDeclineSession(request.id)} className="!px-3 !py-1 !text-xs">Decline</Button>
                     </div>
                   )}
                   {request.status === "confirmed" && (
-                    <button onClick={() => handleCompleteSession(request.id)} className="mt-2 ml-2 rounded bg-blue-600 px-3 py-1 text-xs text-white">Mark Complete</button>
+                    <Button onClick={() => handleCompleteSession(request.id)} className="mt-2 ml-2 !px-3 !py-1 !text-xs">Mark Complete</Button>
                   )}
                 </div>
               ))
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </main>
   );

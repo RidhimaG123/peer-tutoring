@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import Card from "@/components/Card";
 
 type Role = "student" | "mentor" | "admin";
 
@@ -62,7 +63,7 @@ export default function Home() {
 
       <section className="mx-auto max-w-4xl px-4 py-6">
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="md:col-span-2 rounded-2xl border bg-white p-4 shadow-sm">
+          <Card className="md:col-span-2">
             <div className="text-base font-semibold">Status</div>
             <p className="mt-2 text-sm text-zinc-700">{greeting}</p>
 
@@ -70,7 +71,7 @@ export default function Home() {
             {isAuthed && role && (
               <div className="mt-3">
                 <Link
-                  className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-800"
+                  className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
                   href={
                     role === "admin"
                       ? "/admin"
@@ -97,7 +98,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
 
         </div>
       </section>

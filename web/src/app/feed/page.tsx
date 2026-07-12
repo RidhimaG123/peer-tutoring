@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Card from "@/components/Card";
 
 
 export default function FeedPage() {
@@ -71,7 +72,7 @@ export default function FeedPage() {
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <Card>
           <div className="text-lg font-semibold">School Feed</div>
           <p className="mt-2 text-sm text-zinc-600">Feed activity will appear here.</p>
           <div className="mt-4 text-sm text-zinc-700">
@@ -105,7 +106,7 @@ export default function FeedPage() {
               )}
             </div>
           </div>
-        </div>
+        </Card>
       </div>
     </main>
   );

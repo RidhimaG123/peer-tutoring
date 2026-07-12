@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BookOpen, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Button from "@/components/Button";
 
 export default function Nav() {
   const [role, setRole] = useState<string | null>(null);
@@ -62,30 +63,31 @@ export default function Nav() {
             <>
               <Link
                 href={dashboardHref}
-                className="text-zinc-600 hover:text-zinc-900 transition-colors"
+                className="text-zinc-600 hover:text-indigo-600 transition-colors"
               >
                 Dashboard
               </Link>
               <Link
                 href="/feed"
-                className="text-zinc-600 hover:text-zinc-900 transition-colors"
+                className="text-zinc-600 hover:text-indigo-600 transition-colors"
               >
                 Feed
               </Link>
-              <button
+              <Button
+                variant="secondary"
                 onClick={async () => {
                   await supabase.auth.signOut();
                   setTimeout(() => { window.location.href = "/"; }, 500);
                 }}
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50 transition-colors"
+                className="px-3 py-2"
               >
                 <span className="flex items-center gap-1"><LogOut size={14} /> Log out</span>
-              </button>
+              </Button>
             </>
           ) : (
             <Link
               href="/auth"
-              className="rounded-xl bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-800 transition-colors"
+              className="rounded-xl bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 transition-colors"
             >
               Sign in
             </Link>

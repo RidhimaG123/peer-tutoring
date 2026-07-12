@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
+import Card from "@/components/Card";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -71,7 +72,7 @@ export default function AuthPage() {
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-md px-4 py-10">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <Card>
           <div className="text-lg font-semibold">Sign in</div>
           <p className="mt-1 text-sm text-zinc-600">
             Sign in to your account.
@@ -100,17 +101,18 @@ export default function AuthPage() {
                 autoComplete="current-password"
                 required
               />
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={handleForgotPassword}
-                className="mt-1 text-xs text-zinc-500 underline hover:text-zinc-700"
+                className="mt-1 text-xs"
               >
                 Forgot password?
-              </button>
+              </Button>
             </label>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setRole("student")} className={`flex-1 rounded-xl border px-3 py-2 text-sm ${role === "student" ? "bg-zinc-900 text-white" : ""}`}>Student</button>
-              <button type="button" onClick={() => setRole("mentor")} className={`flex-1 rounded-xl border px-3 py-2 text-sm ${role === "mentor" ? "bg-zinc-900 text-white" : ""}`}>Mentor</button>
+              <Button type="button" variant={role === "student" ? "primary" : "secondary"} onClick={() => setRole("student")} className="flex-1">Student</Button>
+              <Button type="button" variant={role === "mentor" ? "primary" : "secondary"} onClick={() => setRole("mentor")} className="flex-1">Mentor</Button>
             </div>
 
             <div className="flex gap-2 pt-2">
@@ -120,7 +122,7 @@ export default function AuthPage() {
 
             <div className="pt-2 text-xs text-zinc-600">{status}</div>
           </form>
-        </div>
+        </Card>
 
         <p className="mt-4 text-xs text-zinc-500">
           Tip: If sign-up requires email confirmation, check your inbox.

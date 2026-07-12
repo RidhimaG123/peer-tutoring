@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Card from "@/components/Card";
 
 type MentorProfile = {
   id: string;
@@ -31,7 +32,7 @@ export default function MentorProfilePage({ params }: { params: { id: string } }
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <Card>
           <div className="text-lg font-semibold">Mentor Profile</div>
           {mentor ? (
             <div className="mt-2 space-y-2 text-sm text-zinc-700">
@@ -44,7 +45,7 @@ export default function MentorProfilePage({ params }: { params: { id: string } }
           ) : (
             <p className="mt-2 text-sm text-zinc-600">Loading mentor...</p>
           )}
-        </div>
+        </Card>
       </div>
     </main>
   );

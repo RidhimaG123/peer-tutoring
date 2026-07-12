@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
+import Card from "@/components/Card";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export default function ResetPasswordPage() {
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-md px-4 py-10">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <Card>
           <div className="text-lg font-semibold">Set a new password</div>
           <p className="mt-1 text-sm text-zinc-600">
             Followed the link from your reset email? Enter a new password below.
@@ -72,7 +73,7 @@ export default function ResetPasswordPage() {
 
             <div className="pt-2 text-xs text-zinc-600">{status}</div>
           </form>
-        </div>
+        </Card>
       </div>
     </main>
   );

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Button from "@/components/Button";
+import Card from "@/components/Card";
 
 type MentorProfile = {
   id: string;
@@ -279,15 +281,15 @@ export default function StudentDashboard() {
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <button onClick={() => router.push("/")} className="mb-3 rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50">← Home</button>
+        <Card>
+          <Button variant="secondary" onClick={() => router.push("/")} className="mb-3">← Home</Button>
           <div className="text-lg font-semibold">Student Dashboard</div>
           <p className="mt-2 text-sm text-zinc-600">
             Browse mentors and profile details in this milestone.
           </p>
-        </div>
+        </Card>
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <Card className="mt-4">
           <div className="text-base font-semibold">Your Profile</div>
           <div className="mt-2 space-y-1 text-sm text-zinc-700">
             <div><span className="font-medium">Name:</span> {profile?.display_name || "Not set"}</div>
@@ -296,9 +298,9 @@ export default function StudentDashboard() {
             <div><span className="font-medium">Bio:</span> {profile?.bio || "Not set"}</div>
             <div><span className="font-medium">Availability:</span> {profile?.availability_preference || "Not set"}</div>
           </div>
-        </div>
+        </Card>
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <Card className="mt-4">
           <div className="text-base font-semibold">Edit Profile</div>
           <div className="mt-2 space-y-2">
             <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
@@ -306,18 +308,18 @@ export default function StudentDashboard() {
             <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
             <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
             <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
-            <button onClick={handleSave} className="mt-2 rounded bg-zinc-900 px-4 py-2 text-sm text-white">Save</button>
+            <Button onClick={handleSave} className="mt-2">Save</Button>
           </div>
-        </div>
-        <div className="mt-4 rounded-2xl border bg-green-50 p-5 shadow-sm">
+        </Card>
+        <Card variant="success" className="mt-4">
           <div className="text-base font-semibold">Today’s Match</div>
           {matchedMentor ? (
             <div className="mt-2 space-y-2 text-sm text-zinc-700">
-              <button onClick={handleRematch} className="ml-2 rounded border px-4 py-2 text-sm">Rematch</button>
+              <Button variant="secondary" onClick={handleRematch} className="ml-2">Rematch</Button>
               <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
               <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
-              <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded bg-zinc-900 px-4 py-2 text-sm text-white">View Mentor Profile</a>
+              <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors">View Mentor Profile</a>
               <div className="mt-2">
                 <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
                 <div className="flex flex-wrap gap-2">
@@ -335,7 +337,7 @@ export default function StudentDashboard() {
                   ))}
                 </div>
               </div>
-              <button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
+              <Button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">Request Session</Button>
               {currentSession && currentSession.mentor_id === matchedMentor.id && (
                 <div className="mt-2 rounded border bg-white p-3 text-xs">
                   <span className="font-medium">Session Status:</span> {
@@ -350,10 +352,10 @@ export default function StudentDashboard() {
           ) : (
             <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
           )}
-        </div>
+        </Card>
 
 
-        <div className="mt-4 rounded-2xl border bg-yellow-50 p-5 shadow-sm">
+        <Card variant="warning" className="mt-4">
           <div className="text-base font-semibold">Pending Ratings</div>
           <div className="mt-2 space-y-2 text-sm text-zinc-700">
             {pendingRatings.length === 0 ? (
@@ -373,9 +375,9 @@ export default function StudentDashboard() {
               ))
             )}
           </div>
-        </div>
+        </Card>
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <Card className="mt-4">
           <div className="text-base font-semibold">Recent Match History</div>
           <div className="mt-2 space-y-2 text-sm text-zinc-700">
             {matchHistory.length === 0 ? (
@@ -389,10 +391,10 @@ export default function StudentDashboard() {
               ))
             )}
           </div>
-        </div>
+        </Card>
 
 
-        <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <Card className="mt-4">
           <div className="text-base font-semibold">Mentor Directory</div>
           <p className="mt-2 text-sm text-zinc-600">
             {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
@@ -440,7 +442,7 @@ export default function StudentDashboard() {
                       ))}
                     </div>
                   </div>
-                  <button onClick={() => handleRequestSession(mentor.id)} className="mt-3 rounded bg-blue-600 px-4 py-2 text-sm text-white">Request Session</button>
+                  <Button onClick={() => handleRequestSession(mentor.id)} className="mt-3">Request Session</Button>
                   {currentSession && currentSession.mentor_id === mentor.id && (
                     <div className="mt-2 rounded border bg-white p-2 text-xs">
                       <span className="font-medium">Status:</span> {
@@ -455,7 +457,7 @@ export default function StudentDashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
     </main>
   );
