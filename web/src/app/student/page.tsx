@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
+import TimeSlotPicker from "@/components/TimeSlotPicker";
 
 type MentorProfile = {
   id: string;
@@ -321,21 +322,7 @@ export default function StudentDashboard() {
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
               <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors">View Mentor Profile</a>
               <div className="mt-2">
-                <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
-                <div className="flex flex-wrap gap-2">
-                  {["Mon", "Tue", "Wed", "Thu", "Fri"].flatMap((day) =>
-                    ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"].map((time) => `${day} ${time}`)
-                  ).map((slot) => (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => setSelectedTimeSlot(slot)}
-                      className={`rounded border px-3 py-1 text-xs ${selectedTimeSlot === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
-                    >
-                      {slot}
-                    </button>
-                  ))}
-                </div>
+                <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
               </div>
               <Button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">Request Session</Button>
               {currentSession && currentSession.mentor_id === matchedMentor.id && (
@@ -426,21 +413,7 @@ export default function StudentDashboard() {
                   {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
                 </div>
                   <div className="mt-3">
-                    <div className="mb-2 text-xs font-medium text-zinc-700">Choose a time slot</div>
-                    <div className="flex flex-wrap gap-2">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri"].flatMap((day) =>
-                        ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"].map((time) => `${day} ${time}`)
-                      ).map((slot) => (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => setSelectedTimeSlot(slot)}
-                          className={`rounded border px-3 py-1 text-xs ${selectedTimeSlot === slot ? "bg-zinc-900 text-white" : "bg-white"}`}
-                        >
-                          {slot}
-                        </button>
-                      ))}
-                    </div>
+                    <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
                   </div>
                   <Button onClick={() => handleRequestSession(mentor.id)} className="mt-3">Request Session</Button>
                   {currentSession && currentSession.mentor_id === mentor.id && (
