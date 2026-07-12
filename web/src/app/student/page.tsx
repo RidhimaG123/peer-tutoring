@@ -43,6 +43,7 @@ export default function StudentDashboard() {
   const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; created_at: string; mentor: { display_name: string | null } | null }[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
+  const [requestingMentorId, setRequestingMentorId] = useState<string | null>(null);
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -65,25 +66,32 @@ export default function StudentDashboard() {
   }
 
   async function handleRequestSession(mentorId: string) {
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
-    if (!session || !mentorId || !selectedTimeSlot) return;
+    if (!mentorId || !selectedTimeSlot) return;
 
-    const { error } = await supabase
-      .from("sessions")
-      .insert({
-        student_id: session.user.id,
-        mentor_id: mentorId,
-        requested_time: selectedTimeSlot,
-        status: "requested",
-      });
+    setRequestingMentorId(mentorId);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      if (!session) return;
 
-    if (error) {
-      console.error("request session error", error);
-      return;
+      const { error } = await supabase
+        .from("sessions")
+        .insert({
+          student_id: session.user.id,
+          mentor_id: mentorId,
+          requested_time: selectedTimeSlot,
+          status: "requested",
+        });
+
+      if (error) {
+        console.error("request session error", error);
+        return;
+      }
+
+      window.location.reload();
+    } finally {
+      setRequestingMentorId(null);
     }
-
-    window.location.reload();
   }
 
   async function handleRateSession(sessionId: string, rating: number) {
@@ -327,7 +335,20 @@ export default function StudentDashboard() {
               <div className="mt-2">
                 <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
               </div>
-              <Button onClick={() => handleRequestSession(matchedMentor.id)} className="ml-2">Request Session</Button>
+              <Button
+                onClick={() => handleRequestSession(matchedMentor.id)}
+                disabled={requestingMentorId === matchedMentor.id}
+                className="ml-2"
+              >
+                {requestingMentorId === matchedMentor.id ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Requesting...
+                  </span>
+                ) : (
+                  "Request Session"
+                )}
+              </Button>
             </div>
           ) : (
             <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
@@ -445,7 +466,20 @@ export default function StudentDashboard() {
                   <div className="mt-3">
                     <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
                   </div>
-                  <Button onClick={() => handleRequestSession(mentor.id)} className="mt-3">Request Session</Button>
+                  <Button
+                    onClick={() => handleRequestSession(mentor.id)}
+                    disabled={requestingMentorId === mentor.id}
+                    className="mt-3"
+                  >
+                    {requestingMentorId === mentor.id ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Requesting...
+                      </span>
+                    ) : (
+                      "Request Session"
+                    )}
+                  </Button>
                 </div>
               </div>
             ))}
