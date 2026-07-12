@@ -40,7 +40,7 @@ export default function StudentDashboard() {
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
-  const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; created_at: string; mentor: { display_name: string | null } | null }[]>([]);
+  const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; created_at: string; mentor_id: string; mentor: { display_name: string | null } | null }[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
   const [requestingMentorId, setRequestingMentorId] = useState<string | null>(null);
@@ -88,6 +88,7 @@ export default function StudentDashboard() {
         return;
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       window.location.reload();
     } finally {
       setRequestingMentorId(null);
@@ -237,7 +238,7 @@ export default function StudentDashboard() {
 
         const { data: bookedSessionsData } = await supabase
           .from("sessions")
-          .select("id, status, requested_time, created_at, mentor:profiles!sessions_mentor_id_fkey(display_name)")
+          .select("id, status, requested_time, created_at, mentor_id, mentor:profiles!sessions_mentor_id_fkey(display_name)")
           .eq("student_id", session.user.id)
           .in("status", ["requested", "confirmed", "declined"])
           .order("created_at", { ascending: false });
@@ -333,7 +334,13 @@ export default function StudentDashboard() {
               <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
               <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors">View Mentor Profile</a>
               <div className="mt-2">
-                <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
+                <TimeSlotPicker
+                  selectedSlot={selectedTimeSlot}
+                  onSelectSlot={setSelectedTimeSlot}
+                  blockedSlots={bookedSessions
+                    .filter((s) => s.mentor_id === matchedMentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
+                    .map((s) => s.requested_time as string)}
+                />
               </div>
               <Button
                 onClick={() => handleRequestSession(matchedMentor.id)}
@@ -464,7 +471,13 @@ export default function StudentDashboard() {
                   {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
                 </div>
                   <div className="mt-3">
-                    <TimeSlotPicker selectedSlot={selectedTimeSlot} onSelectSlot={setSelectedTimeSlot} />
+                    <TimeSlotPicker
+                      selectedSlot={selectedTimeSlot}
+                      onSelectSlot={setSelectedTimeSlot}
+                      blockedSlots={bookedSessions
+                        .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
+                        .map((s) => s.requested_time as string)}
+                    />
                   </div>
                   <Button
                     onClick={() => handleRequestSession(mentor.id)}
