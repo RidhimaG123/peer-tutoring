@@ -17,13 +17,31 @@ export default function AuthPage() {
     e.preventDefault();
     setStatus("Signing in...");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
       setStatus(`Error: ${error.message}`);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.session?.user?.id)
+      .single();
+
+    if (!profile?.role) {
+      await supabase.auth.signOut();
+      setStatus("Error: Could not verify account role.");
+      return;
+    }
+
+    if (profile.role !== role) {
+      await supabase.auth.signOut();
+      setStatus(`This account is registered as a ${profile.role}. Please select ${profile.role} to sign in.`);
       return;
     }
 
