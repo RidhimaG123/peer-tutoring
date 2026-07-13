@@ -120,7 +120,7 @@ export default function Home() {
 
       <footer className="mx-auto max-w-4xl px-4 pb-8 text-center text-xs text-zinc-500">
         Peer Tutoring — Connecting students with mentors.
-        <Link href="/admin" className="mt-2 block text-[10px] text-zinc-400 hover:text-zinc-500">
+        <Link href="/admin/login" className="mt-2 block text-[10px] text-zinc-400 hover:text-zinc-500">
           Admin
         </Link>
       </footer>
