@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import Card from "@/components/Card";
@@ -11,36 +11,55 @@ type Role = "student" | "mentor" | "admin";
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<Role | null>(null);
+  const [completedCount, setCompletedCount] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    async function loadRole(userId: string) {
-      const { data, error } = await supabase
+    async function loadRoleAndStats(userId: string) {
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", userId)
         .single();
 
       if (!mounted) return;
-      if (error) {
+      if (error || !profile) {
         setRole(null);
         return;
       }
-      setRole((data?.role as Role) ?? null);
+
+      const userRole = profile.role as Role;
+      setRole(userRole);
+
+      if (userRole === "student" || userRole === "mentor") {
+        const column = userRole === "mentor" ? "mentor_id" : "student_id";
+        const { count } = await supabase
+          .from("sessions")
+          .select("*", { count: "exact", head: true })
+          .eq(column, userId)
+          .eq("status", "completed");
+
+        if (!mounted) return;
+        setCompletedCount(count ?? 0);
+      }
     }
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       const s = data.session ?? null;
       setSession(s);
-      if (s?.user?.id) loadRole(s.user.id);
+      if (s?.user?.id) loadRoleAndStats(s.user.id);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
-      if (newSession?.user?.id) loadRole(newSession.user.id);
-      else setRole(null);
+      if (newSession?.user?.id) {
+        loadRoleAndStats(newSession.user.id);
+      } else {
+        setRole(null);
+        setCompletedCount(null);
+      }
     });
 
     return () => {
@@ -50,60 +69,56 @@ export default function Home() {
   }, []);
 
   const isAuthed = !!session;
-
-  const greeting = useMemo(() => {
-    if (!isAuthed) return "Hello, you’re logged out.";
-    if (!role) return "Hello, you’re logged in.";
-    return `Hello, you’re logged in as a ${role}.`;
-  }, [isAuthed, role]);
-
+  const dashboardHref = role === "admin" ? "/admin" : role === "mentor" ? "/mentor" : "/student";
+  const roleLabel = role === "admin" ? "Admin" : role === "mentor" ? "Mentor" : "Student";
 
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
-
-      <section className="mx-auto max-w-4xl px-4 py-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="md:col-span-2">
-            <div className="text-base font-semibold">Status</div>
-            <p className="mt-2 text-sm text-zinc-700">{greeting}</p>
-
-
-            {isAuthed && role && (
-              <div className="mt-3">
-                <Link
-                  className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
-                  href={
-                    role === "admin"
-                      ? "/admin"
-                      : role === "mentor"
-                      ? "/mentor"
-                      : "/student"
-                  }
-                >
-                  Go to {role === "admin" ? "Admin" : role === "mentor" ? "Mentor" : "Student"} Dashboard
-                </Link>
-              </div>
+      <section className="mx-auto max-w-4xl px-4 py-16">
+        {isAuthed ? (
+          <Card>
+            {role && (
+              <div className="text-sm font-medium text-indigo-600">{roleLabel}</div>
             )}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border p-4">
-                <div className="text-sm font-semibold">Today’s Match</div>
-                <div className="mt-1 text-sm text-zinc-600">
-                  {isAuthed ? "View your matched tutor for today." : "Log in to see your match."}
+            <h1 className="mt-1 text-2xl font-semibold">Welcome back</h1>
+            <p className="mt-2 text-sm text-zinc-600">
+              {role ? `You’re signed in as a ${role}.` : "You’re signed in."}
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <Link
+                href={dashboardHref}
+                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors"
+              >
+                Go to Dashboard
+              </Link>
+
+              {completedCount !== null && (
+                <div className="text-sm text-zinc-600">
+                  <span className="text-lg font-semibold text-zinc-900">{completedCount}</span> sessions completed
                 </div>
-              </div>
-              <div className="rounded-2xl border p-4">
-                <div className="text-sm font-semibold">Quick Action</div>
-                <div className="mt-1 text-sm text-zinc-600">
-                  {isAuthed ? "Request a tutoring session." : "Find a tutor for any subject."}
-                </div>
-              </div>
+              )}
             </div>
           </Card>
-
-        </div>
+        ) : (
+          <div className="text-center">
+            <h1 className="text-4xl font-semibold tracking-tight">Peer Tutoring</h1>
+            <p className="mt-3 text-lg text-zinc-600">
+              Connect with a peer mentor and get help in the subjects you need.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Link
+                href="/auth"
+                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
+        )}
       </section>
 
-      <footer className="mx-auto max-w-4xl px-4 pb-8 text-xs text-zinc-500">
+      <footer className="mx-auto max-w-4xl px-4 pb-8 text-center text-xs text-zinc-500">
         Peer Tutoring — Connecting students with mentors.
       </footer>
     </main>
