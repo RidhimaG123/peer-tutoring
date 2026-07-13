@@ -1,6 +1,134 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function parseSlotToUtcRange(slot: string): { startUtc: Date; endUtc: Date } | null {
+  try {
+    if (!slot) return null;
+
+    const match = slot.match(/^\w+ (\d{1,2}) (\w{3}), (\d{1,2}):(\d{2})–(\d{1,2}):(\d{2}) (AM|PM)$/);
+    if (!match) return null;
+
+    const [, dayStr, monthStr, startHStr, startMStr, endHStr, endMStr, ampm] = match;
+    const monthIndex = MONTH_NAMES.indexOf(monthStr);
+    if (monthIndex === -1) return null;
+
+    const day = parseInt(dayStr, 10);
+    let startHour = parseInt(startHStr, 10);
+    let endHour = parseInt(endHStr, 10);
+    const startMinute = parseInt(startMStr, 10);
+    const endMinute = parseInt(endMStr, 10);
+
+    if (ampm === "AM") {
+      if (startHour === 12) startHour = 0;
+      if (endHour === 12) endHour = 0;
+    } else {
+      if (startHour !== 12) startHour += 12;
+      if (endHour !== 12) endHour += 12;
+    }
+
+    const now = new Date();
+    let year = now.getFullYear();
+
+    // MYT is UTC+8, so local hour - 8 gives the UTC hour; Date.UTC normalizes
+    // negative hours across day/month/year boundaries automatically.
+    let startUtc = new Date(Date.UTC(year, monthIndex, day, startHour - 8, startMinute));
+    let endUtc = new Date(Date.UTC(year, monthIndex, day, endHour - 8, endMinute));
+
+    // If the resulting date is well in the past, the slot likely rolled into
+    // next year (e.g. requested in late December for an early-January date).
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    if (startUtc.getTime() < now.getTime() - threeDaysMs) {
+      year += 1;
+      startUtc = new Date(Date.UTC(year, monthIndex, day, startHour - 8, startMinute));
+      endUtc = new Date(Date.UTC(year, monthIndex, day, endHour - 8, endMinute));
+    }
+
+    if (isNaN(startUtc.getTime()) || isNaN(endUtc.getTime())) return null;
+
+    return { startUtc, endUtc };
+  } catch {
+    return null;
+  }
+}
+
+function toGoogleCalendarStamp(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+}
+
+function buildCalendarUrl(slot: string, mentorName: string, studentName: string): string | null {
+  const range = parseSlotToUtcRange(slot);
+  if (!range) return null;
+
+  const dates = `${toGoogleCalendarStamp(range.startUtc)}/${toGoogleCalendarStamp(range.endUtc)}`;
+  const details = `Peer Tutoring session between ${studentName || "a student"} and ${mentorName || "a mentor"}.`;
+
+  const params = new URLSearchParams({
+    text: "Peer Tutoring Session",
+    dates,
+    details,
+    location: "Online",
+  });
+
+  return `https://calendar.google.com/calendar/r/eventedit?${params.toString()}`;
+}
+
+function renderEmailHtml({
+  greetingName,
+  introLine,
+  mentorName,
+  studentName,
+  slot,
+  calendarUrl,
+}: {
+  greetingName: string;
+  introLine: string;
+  mentorName: string;
+  studentName: string;
+  slot: string;
+  calendarUrl: string | null;
+}): string {
+  return `
+    <div style="font-family: Arial, Helvetica, sans-serif; background:#f4f4f5; padding:24px;">
+      <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <div style="background:#4f46e5;padding:20px 24px;">
+          <div style="color:#ffffff;font-size:18px;font-weight:600;">Peer Tutoring</div>
+        </div>
+        <div style="padding:24px;">
+          <p style="margin:0 0 12px;color:#18181b;">Hi ${greetingName || "there"},</p>
+          <p style="margin:0 0 16px;color:#3f3f46;">${introLine}</p>
+
+          <div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:0 0 16px;">
+            <table style="border-collapse:collapse;width:100%;font-size:14px;">
+              <tr><td style="padding:4px 12px 4px 0;color:#71717a;">Mentor</td><td style="color:#18181b;"><strong>${mentorName || "your mentor"}</strong></td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#71717a;">Student</td><td style="color:#18181b;"><strong>${studentName || "your student"}</strong></td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#71717a;">Time slot</td><td style="color:#18181b;"><strong>${slot}</strong></td></tr>
+            </table>
+          </div>
+
+          ${calendarUrl ? `
+          <div style="margin:0 0 16px;">
+            <a href="${calendarUrl}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:500;">
+              Add to Google Calendar
+            </a>
+          </div>
+          ` : ""}
+
+          <ul style="margin:0 0 16px;padding-left:18px;color:#3f3f46;font-size:14px;line-height:1.6;">
+            <li>Please discuss which online meeting platform to use for the session.</li>
+            <li>Don't forget to rate your mentor on the app afterwards.</li>
+            <li>If the other person does not show up, please leave a review on the app so we can follow up.</li>
+          </ul>
+        </div>
+        <div style="background:#f4f4f5;padding:16px 24px;border-top:1px solid #e4e4e7;">
+          <p style="margin:0;color:#a1a1aa;font-size:12px;">— Peer Tutoring</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export async function POST(req: NextRequest) {
   const { studentEmail, studentName, mentorId, slot } = await req.json();
 
@@ -26,32 +154,25 @@ export async function POST(req: NextRequest) {
 
   const subject = `Peer Tutoring session requested — ${slot}`;
   const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const calendarUrl = buildCalendarUrl(slot, mentorName, studentName);
 
-  const studentHtml = `
-    <p>Hi ${studentName || "there"},</p>
-    <p>Your tutoring session request has been sent! Your mentor still needs to accept it before it's confirmed.</p>
-    <table style="border-collapse:collapse;margin:16px 0">
-      <tr><td style="padding:4px 12px 4px 0;color:#555">Mentor</td><td><strong>${mentorName || "your mentor"}</strong></td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#555">Time slot</td><td><strong>${slot}</strong></td></tr>
-    </table>
-    <p style="background:#f4f4f0;padding:12px 16px;border-radius:8px">
-      Once your mentor accepts, discuss where to meet for the session and don't forget to rate your mentor afterwards.
-    </p>
-    <p style="color:#888;font-size:13px">— Peer Tutoring</p>
-  `;
+  const studentHtml = renderEmailHtml({
+    greetingName: studentName,
+    introLine: "Your tutoring session request has been sent! Your mentor still needs to accept it before it's confirmed.",
+    mentorName,
+    studentName,
+    slot,
+    calendarUrl,
+  });
 
-  const mentorHtml = `
-    <p>Hi ${mentorName || "there"},</p>
-    <p>A student has requested a tutoring session with you.</p>
-    <table style="border-collapse:collapse;margin:16px 0">
-      <tr><td style="padding:4px 12px 4px 0;color:#555">Student</td><td><strong>${studentName || "a student"}</strong></td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#555">Time slot</td><td><strong>${slot}</strong></td></tr>
-    </table>
-    <p style="background:#f4f4f0;padding:12px 16px;border-radius:8px">
-      Accept or decline the request from your dashboard. Once accepted, discuss where to meet for the session.
-    </p>
-    <p style="color:#888;font-size:13px">— Peer Tutoring</p>
-  `;
+  const mentorHtml = renderEmailHtml({
+    greetingName: mentorName,
+    introLine: "A student has requested a tutoring session with you. Accept or decline the request from your dashboard.",
+    mentorName,
+    studentName,
+    slot,
+    calendarUrl,
+  });
 
   async function sendOne(to: string, html: string) {
     const res = await fetch("https://api.resend.com/emails", {
