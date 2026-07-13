@@ -465,50 +465,85 @@ export default function StudentDashboard() {
               {mentors.length === 0 && (
                 <div className="text-sm text-zinc-500">No mentors available yet.</div>
               )}
-              {filteredMentors.map((mentor) => (
-                <div key={mentor.id} className="block w-full text-left">
-                  <div className="rounded-xl border p-4 hover:bg-zinc-50">
-                  <div className="text-sm font-semibold">
-                    {mentor.display_name || "Unnamed mentor"}
-                  </div>
-                  <div className="mt-1 text-sm text-zinc-600">
-                    {mentor.headline || "No headline yet."}
-                  </div>
-                  <div className="mt-2 text-xs text-zinc-500">
-                    {mentor.subjects?.join(", ") || "No subjects listed."}
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">
-                    {mentor.average_rating ? `Rating: ${mentor.average_rating.toFixed(1)}/5` : "No ratings yet."}
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">
-                    {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
-                  </div>
-                    <div className="mt-3">
-                      <TimeSlotPicker
-                        selectedSlot={selectedTimeSlot}
-                        onSelectSlot={setSelectedTimeSlot}
-                        blockedSlots={bookedSessions
-                          .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
-                          .map((s) => s.requested_time as string)}
-                      />
+              {filteredMentors.map((mentor) => {
+                const initials = (mentor.display_name || "?")
+                  .trim()
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((part) => part[0]?.toUpperCase())
+                  .join("");
+                const roundedRating = Math.round(mentor.average_rating ?? 0);
+
+                return (
+                  <div key={mentor.id} className="block w-full text-left">
+                    <div className="rounded-xl border p-4 hover:bg-zinc-50">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+                          {initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold">
+                            {mentor.display_name || "Unnamed mentor"}
+                          </div>
+                          <div className="mt-0.5 text-sm text-zinc-600">
+                            {mentor.headline || "No headline yet."}
+                          </div>
+                          <div className="mt-2 flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                size={14}
+                                className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
+                                fill={star <= roundedRating ? "currentColor" : "none"}
+                              />
+                            ))}
+                            <span className="ml-1 text-xs text-zinc-500">
+                              {mentor.average_rating ? `${mentor.average_rating.toFixed(1)}/5` : "No ratings yet"}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {mentor.subjects && mentor.subjects.length > 0 ? (
+                              mentor.subjects.map((subject) => (
+                                <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                                  {subject}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-zinc-500">No subjects listed.</span>
+                            )}
+                          </div>
+                          <div className="mt-2 text-xs text-zinc-500">
+                            {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <TimeSlotPicker
+                          selectedSlot={selectedTimeSlot}
+                          onSelectSlot={setSelectedTimeSlot}
+                          blockedSlots={bookedSessions
+                            .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
+                            .map((s) => s.requested_time as string)}
+                        />
+                      </div>
+                      <Button
+                        onClick={() => handleRequestSession(mentor.id)}
+                        disabled={requestingMentorId === mentor.id}
+                        className="mt-3"
+                      >
+                        {requestingMentorId === mentor.id ? (
+                          <span className="flex items-center gap-2">
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Requesting...
+                          </span>
+                        ) : (
+                          "Request Session"
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      onClick={() => handleRequestSession(mentor.id)}
-                      disabled={requestingMentorId === mentor.id}
-                      className="mt-3"
-                    >
-                      {requestingMentorId === mentor.id ? (
-                        <span className="flex items-center gap-2">
-                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          Requesting...
-                        </span>
-                      ) : (
-                        "Request Session"
-                      )}
-                    </Button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         )}
