@@ -2,38 +2,9 @@
 
 import { useState } from "react";
 import Button from "@/components/Button";
+import { formatDayLabel, getUpcomingWeekdays } from "@/lib/weekSlots";
 
 const TIMES = ["9:05–9:25 AM", "12:00–12:30 PM", "2:30–3:00 PM", "3:00–3:30 PM"];
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function formatDayLabel(date: Date): string {
-  return `${WEEKDAY_LABELS[date.getDay()]} ${date.getDate()} ${MONTH_LABELS[date.getMonth()]}`;
-}
-
-function getUpcomingWeekdays(): Date[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dayOfWeek = today.getDay();
-
-  let start = today;
-  if (dayOfWeek === 0) {
-    start = new Date(today);
-    start.setDate(start.getDate() + 1);
-  } else if (dayOfWeek === 6) {
-    start = new Date(today);
-    start.setDate(start.getDate() + 2);
-  }
-
-  const daysUntilFriday = 5 - start.getDay();
-  const dates: Date[] = [];
-  for (let i = 0; i <= daysUntilFriday; i++) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
-}
 
 interface TimeSlotPickerProps {
   selectedSlot: string;

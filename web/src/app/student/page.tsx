@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Star } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { formatDayLabel } from "@/lib/weekSlots";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
 import TimeSlotPicker from "@/components/TimeSlotPicker";
@@ -292,6 +293,15 @@ export default function StudentDashboard() {
 
   const matchedMentor = mentors.find((mentor) => mentor.id === matchedMentorId) ?? null;
 
+  const todayLabel = formatDayLabel(new Date());
+  const confirmedSessionToday = matchedMentor
+    ? bookedSessions.find((s) =>
+        s.mentor_id === matchedMentor.id &&
+        s.status === "confirmed" &&
+        s.requested_time?.startsWith(todayLabel)
+      )
+    : undefined;
+
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-3xl px-4 py-10">
@@ -335,6 +345,17 @@ export default function StudentDashboard() {
               <div className="text-base font-semibold">Today’s Match</div>
               {matchedMentor ? (
                 <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                  {confirmedSessionToday && (
+                    <div className="flex items-center justify-between gap-3 rounded border bg-white p-3">
+                      <div>
+                        <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
+                        <div><span className="font-medium">Time slot:</span> {confirmedSessionToday.requested_time}</div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                        Session confirmed
+                      </span>
+                    </div>
+                  )}
                   <Button variant="secondary" onClick={handleRematch} className="ml-2">Rematch</Button>
                   <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
                   <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
