@@ -3,6 +3,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Card from "@/components/Card";
 
+const RANK_MEDALS = ["🥇", "🥈", "🥉"];
+
+function formatRelativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 export default function FeedPage() {
   const [completedCount, setCompletedCount] = useState(0);
@@ -85,8 +97,9 @@ export default function FeedPage() {
                 <p>No activity yet.</p>
               ) : (
                 topMentors.map((m, i) => (
-                  <div key={m.mentor_id}>
-                    #{i + 1} — {m.name} — {m.count} sessions
+                  <div key={m.mentor_id} className="flex items-center gap-2">
+                    <span>{RANK_MEDALS[i]}</span>
+                    <span>{m.name} — {m.count} sessions</span>
                   </div>
                 ))
               )}
@@ -99,8 +112,9 @@ export default function FeedPage() {
                 <p>No activity yet.</p>
               ) : (
                 recentActivity.map((a, i) => (
-                  <div key={i}>
-                    {a.type}
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <span>{a.type}</span>
+                    <span className="text-xs text-zinc-500">{formatRelativeTime(a.created_at)}</span>
                   </div>
                 ))
               )}
