@@ -20,14 +20,6 @@ type SessionRequest = {
   } | null;
 };
 
-type MentorProfile = {
-  display_name: string | null;
-  headline: string | null;
-  bio: string | null;
-  subjects: string[] | null;
-  availability_preference: string | null;
-};
-
 export default function MentorDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -86,7 +78,6 @@ export default function MentorDashboard() {
     window.location.reload();
   }
 
-  const [profile, setProfile] = useState<MentorProfile | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [headlineInput, setHeadlineInput] = useState("");
   const [subjectsInput, setSubjectsInput] = useState("");
@@ -94,6 +85,7 @@ export default function MentorDashboard() {
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [requests, setRequests] = useState<SessionRequest[]>([]);
   const [mentorId, setMentorId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "profile">("dashboard");
 
   async function loadSessionRequests(mentorId: string) {
     const { data: sessionRequests } = await supabase
@@ -125,8 +117,6 @@ export default function MentorDashboard() {
         router.replace("/");
         return;
       }
-
-      setProfile(profile);
 
       if (profile) {
         setNameInput(profile.display_name || "");
@@ -170,56 +160,68 @@ export default function MentorDashboard() {
         </Card>
 
         <Card className="mt-4">
-          <div className="text-base font-semibold">Your Profile</div>
-          <div className="mt-2 space-y-1 text-sm text-zinc-700">
-            <div><span className="font-medium">Name:</span> {profile?.display_name || "Not set"}</div>
-            <div><span className="font-medium">Headline:</span> {profile?.headline || "Not set"}</div>
-            <div><span className="font-medium">Subjects:</span> {profile?.subjects?.join(", ") || "Not set"}</div>
-            <div><span className="font-medium">Bio:</span> {profile?.bio || "Not set"}</div>
-            <div><span className="font-medium">Availability:</span> {profile?.availability_preference || "Not set"}</div>
+          <div className="flex gap-2">
+            <Button
+              variant={activeTab === "dashboard" ? "primary" : "secondary"}
+              onClick={() => setActiveTab("dashboard")}
+              className="!px-3 !py-1.5 !text-xs"
+            >
+              Dashboard
+            </Button>
+            <Button
+              variant={activeTab === "profile" ? "primary" : "secondary"}
+              onClick={() => setActiveTab("profile")}
+              className="!px-3 !py-1.5 !text-xs"
+            >
+              Profile
+            </Button>
           </div>
         </Card>
 
-        <Card className="mt-4">
-          <div className="text-base font-semibold">Edit Profile</div>
-          <div className="mt-2 space-y-2">
-            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
-            <input value={headlineInput} onChange={(e) => setHeadlineInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Headline" />
-            <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
-            <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
-            <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
-            <Button onClick={handleSave} className="mt-2">Save</Button>
-          </div>
-        </Card>
+        {activeTab === "dashboard" && (
+          <Card className="mt-4">
+            <div className="text-base font-semibold">Session Requests</div>
+            <div className="mt-2 space-y-2 text-sm text-zinc-700">
+              {requests.length === 0 ? (
+                <p>No pending session requests.</p>
+              ) : (
+                requests.map((request) => (
+                  <div key={request.id} className="rounded border p-3">
+                    <div><span className="font-medium">Student:</span> {request.student?.display_name || "Unnamed student"}</div>
+                    <div><span className="font-medium">Grade:</span> {request.student?.grade || "Not set"}</div>
+                    <div><span className="font-medium">Subjects:</span> {request.student?.subjects?.join(", ") || "Not set"}</div>
+                    <div><span className="font-medium">Bio:</span> {request.student?.bio || "No bio yet."}</div>
+                    <div><span className="font-medium">Requested Time:</span> {request.requested_time || "Not selected"}</div>
+                    <div><span className="font-medium">Status:</span> {request.status}</div>
+                    {request.status === "requested" && (
+                      <div className="mt-2 flex gap-2">
+                        <Button variant="accent" onClick={() => handleAcceptSession(request.id)} className="!px-3 !py-1 !text-xs">Accept</Button>
+                        <Button variant="secondary" onClick={() => handleDeclineSession(request.id)} className="!px-3 !py-1 !text-xs">Decline</Button>
+                      </div>
+                    )}
+                    {request.status === "confirmed" && (
+                      <Button onClick={() => handleCompleteSession(request.id)} className="mt-2 ml-2 !px-3 !py-1 !text-xs">Mark Complete</Button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        )}
 
-        <Card className="mt-4">
-          <div className="text-base font-semibold">Session Requests</div>
-          <div className="mt-2 space-y-2 text-sm text-zinc-700">
-            {requests.length === 0 ? (
-              <p>No pending session requests.</p>
-            ) : (
-              requests.map((request) => (
-                <div key={request.id} className="rounded border p-3">
-                  <div><span className="font-medium">Student:</span> {request.student?.display_name || "Unnamed student"}</div>
-                  <div><span className="font-medium">Grade:</span> {request.student?.grade || "Not set"}</div>
-                  <div><span className="font-medium">Subjects:</span> {request.student?.subjects?.join(", ") || "Not set"}</div>
-                  <div><span className="font-medium">Bio:</span> {request.student?.bio || "No bio yet."}</div>
-                  <div><span className="font-medium">Requested Time:</span> {request.requested_time || "Not selected"}</div>
-                  <div><span className="font-medium">Status:</span> {request.status}</div>
-                  {request.status === "requested" && (
-                    <div className="mt-2 flex gap-2">
-                      <Button variant="accent" onClick={() => handleAcceptSession(request.id)} className="!px-3 !py-1 !text-xs">Accept</Button>
-                      <Button variant="secondary" onClick={() => handleDeclineSession(request.id)} className="!px-3 !py-1 !text-xs">Decline</Button>
-                    </div>
-                  )}
-                  {request.status === "confirmed" && (
-                    <Button onClick={() => handleCompleteSession(request.id)} className="mt-2 ml-2 !px-3 !py-1 !text-xs">Mark Complete</Button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
+        {activeTab === "profile" && (
+          <Card className="mt-4">
+            <div className="text-base font-semibold">Edit Profile</div>
+            <div className="mt-2 space-y-2">
+              <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
+              <input value={headlineInput} onChange={(e) => setHeadlineInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Headline" />
+              <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
+              <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
+              <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
+              <Button onClick={handleSave} className="mt-2">Save</Button>
+            </div>
+          </Card>
+        )}
       </div>
     </main>
   );
