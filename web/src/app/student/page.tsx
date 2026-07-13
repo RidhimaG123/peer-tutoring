@@ -90,6 +90,21 @@ export default function StudentDashboard() {
         return;
       }
 
+      try {
+        const studentEmail = session.user.email ?? "";
+        const studentName = profile?.display_name ?? "";
+        const slot = selectedTimeSlot;
+        if (studentEmail) {
+          await fetch("/api/send-confirmation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentEmail, studentName, mentorId, slot }),
+          });
+        }
+      } catch (emailErr) {
+        console.error("email send error (non-fatal):", emailErr);
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 1000));
       window.location.reload();
     } finally {
