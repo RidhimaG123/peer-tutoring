@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, LogOut } from "lucide-react";
+import { BookOpen, LogOut, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
@@ -9,6 +9,7 @@ import Button from "@/components/Button";
 export default function Nav() {
   const [role, setRole] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     async function loadRole(userId: string) {
@@ -56,7 +57,7 @@ export default function Nav() {
           <BookOpen size={18} /> Peer Tutoring
         </Link>
 
-        <div className="flex items-center gap-3 text-sm">
+        <div className="hidden sm:flex items-center gap-3 text-sm">
           {authed ? (
             <>
               <Link
@@ -91,7 +92,57 @@ export default function Nav() {
             </Link>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          className="sm:hidden rounded-lg p-2 text-zinc-600 hover:bg-zinc-100"
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </div>
+
+      {mobileMenuOpen && (
+        <div className="sm:hidden border-t bg-white px-4 py-3 flex flex-col gap-3 text-sm">
+          {authed ? (
+            <>
+              <Link
+                href={dashboardHref}
+                className="text-zinc-600 hover:text-indigo-600 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/feed"
+                className="text-zinc-600 hover:text-indigo-600 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Feed
+              </Link>
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setTimeout(() => { window.location.href = "/"; }, 500);
+                }}
+                className="px-3 py-2 w-full"
+              >
+                <span className="flex items-center justify-center gap-1"><LogOut size={14} /> Log out</span>
+              </Button>
+            </>
+          ) : (
+            <Link
+              href="/auth"
+              className="rounded-xl bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 transition-colors text-center"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Sign in
+            </Link>
+          )}
+        </div>
+      )}
     </nav>
   );
 }
