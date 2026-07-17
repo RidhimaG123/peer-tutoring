@@ -1,13 +1,23 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
 
 export default function AuthPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthForm />
+    </Suspense>
+  );
+}
+
+function AuthForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isSignupMode = searchParams.get("mode") === "signup";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("student");
@@ -91,12 +101,12 @@ export default function AuthPage() {
     <main className="min-h-dvh bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-md px-4 py-10">
         <Card>
-          <div className="text-lg font-semibold">Sign in</div>
+          <div className="text-lg font-semibold">{isSignupMode ? "Sign up" : "Sign in"}</div>
           <p className="mt-1 text-sm text-zinc-600">
-            Sign in to your account.
+            {isSignupMode ? "Create your account." : "Sign in to your account."}
           </p>
 
-          <form className="mt-4 space-y-3" onSubmit={signIn}>
+          <form className="mt-4 space-y-3" onSubmit={isSignupMode ? signUp : signIn}>
             <label className="block">
               <div className="text-xs font-medium text-zinc-700">Email</div>
               <input
@@ -134,8 +144,22 @@ export default function AuthPage() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button variant="primary" type="submit" className="flex-1">Sign in</Button>
-              <Button variant="secondary" type="button" onClick={signUp} className="flex-1">Sign up</Button>
+              <Button
+                variant={isSignupMode ? "secondary" : "primary"}
+                type={isSignupMode ? "button" : "submit"}
+                onClick={isSignupMode ? signIn : undefined}
+                className="flex-1"
+              >
+                Sign in
+              </Button>
+              <Button
+                variant={isSignupMode ? "primary" : "secondary"}
+                type={isSignupMode ? "submit" : "button"}
+                onClick={isSignupMode ? undefined : signUp}
+                className="flex-1"
+              >
+                Sign up
+              </Button>
             </div>
 
             <div className="pt-2 text-xs text-zinc-600">{status}</div>
