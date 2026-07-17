@@ -52,7 +52,7 @@ export default function Nav() {
   const dashboardHref =
     role === "admin" ? "/admin" : role === "mentor" ? "/mentor" : "/student";
 
-  if (pathname === "/" && !authed) {
+  if ((pathname === "/" || pathname === "/auth" || pathname === "/onboarding") && !authed) {
     return null;
   }
 

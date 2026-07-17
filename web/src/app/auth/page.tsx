@@ -1,10 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import Button from "@/components/Button";
-import Card from "@/components/Card";
 
 export default function AuthPage() {
   return (
@@ -18,10 +17,11 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSignupMode = searchParams.get("mode") === "signup";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("student");
-  const [status, setStatus] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [status, setStatus] = useState("");
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
@@ -43,30 +43,23 @@ function AuthForm() {
       .eq("id", data.session?.user?.id)
       .single();
 
-    if (!profile?.role) {
-      await supabase.auth.signOut();
-      setStatus("Error: Could not verify account role.");
-      return;
-    }
-
-    if (profile.role !== role) {
-      await supabase.auth.signOut();
-      setStatus(`This account is registered as a ${profile.role}. Please select ${profile.role} to sign in.`);
-      return;
-    }
-
-    setStatus("Signed in ✅");
-    router.push("/");
+    const role = profile?.role;
+    router.push(role === "admin" ? "/admin" : role === "mentor" ? "/mentor" : "/student");
   }
 
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("Signing up...");
+
+    if (password !== confirmPassword) {
+      setStatus("Passwords do not match");
+      return;
+    }
+
+    setStatus("Creating account...");
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { role } },
     });
 
     if (error) {
@@ -99,81 +92,88 @@ function AuthForm() {
       return;
     }
 
-    setStatus("Password reset email sent ✅ Check your inbox.");
+    setStatus("Password reset email sent. Check your inbox.");
   }
 
   return (
-    <main className="min-h-dvh bg-zinc-50 text-zinc-900">
-      <div className="mx-auto max-w-md px-4 py-10">
-        <Card>
-          <div className="text-lg font-semibold">{isSignupMode ? "Sign up" : "Sign in"}</div>
-          <p className="mt-1 text-sm text-zinc-600">
-            {isSignupMode ? "Create your account." : "Sign in to your account."}
-          </p>
+    <main className="min-h-dvh bg-[#0a0a0a] text-white">
+      <div className="mx-auto max-w-md px-4 py-20">
+        <h1 className="text-2xl font-semibold">{isSignupMode ? "Create your account" : "Welcome back"}</h1>
 
-          <form className="mt-4 space-y-3" onSubmit={isSignupMode ? signUp : signIn}>
-            <label className="block">
-              <div className="text-xs font-medium text-zinc-700">Email</div>
-              <input
-                className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                autoComplete="email"
-                required
-              />
-            </label>
+        <form className="mt-6 space-y-4" onSubmit={isSignupMode ? signUp : signIn}>
+          <label className="block">
+            <div className="text-xs font-medium text-zinc-400">Email</div>
+            <input
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              autoComplete="email"
+              required
+            />
+          </label>
 
+          <label className="block">
+            <div className="text-xs font-medium text-zinc-400">Password</div>
+            <input
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              autoComplete={isSignupMode ? "new-password" : "current-password"}
+              required
+            />
+          </label>
+
+          {isSignupMode ? (
             <label className="block">
-              <div className="text-xs font-medium text-zinc-700">Password</div>
+              <div className="text-xs font-medium text-zinc-400">Confirm password</div>
               <input
-                className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
               />
-              <Button
-                type="button"
-                variant="link"
-                onClick={handleForgotPassword}
-                className="mt-1 text-xs"
-              >
-                Forgot password?
-              </Button>
             </label>
-            <div className="flex gap-2">
-              <Button type="button" variant={role === "student" ? "primary" : "secondary"} onClick={() => setRole("student")} className="flex-1">Student</Button>
-              <Button type="button" variant={role === "mentor" ? "primary" : "secondary"} onClick={() => setRole("mentor")} className="flex-1">Mentor</Button>
-            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-xs text-indigo-400 hover:text-indigo-300"
+            >
+              Forgot password?
+            </button>
+          )}
 
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant={isSignupMode ? "secondary" : "primary"}
-                type={isSignupMode ? "button" : "submit"}
-                onClick={isSignupMode ? signIn : undefined}
-                className="flex-1"
-              >
-                Sign in
-              </Button>
-              <Button
-                variant={isSignupMode ? "primary" : "secondary"}
-                type={isSignupMode ? "submit" : "button"}
-                onClick={isSignupMode ? undefined : signUp}
-                className="flex-1"
-              >
-                Sign up
-              </Button>
-            </div>
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          >
+            {isSignupMode ? "Create account" : "Sign in"}
+          </button>
 
-            <div className="pt-2 text-xs text-zinc-600">{status}</div>
-          </form>
-        </Card>
+          {status && <div className="text-xs text-zinc-400">{status}</div>}
 
-        <p className="mt-4 text-xs text-zinc-500">
-          Tip: If sign-up requires email confirmation, check your inbox.
-        </p>
+          <div className="text-center text-xs text-zinc-500">
+            {isSignupMode ? (
+              <>
+                Already have an account?{" "}
+                <Link href="/auth?mode=login" className="text-indigo-400 hover:text-indigo-300">
+                  Log in
+                </Link>
+              </>
+            ) : (
+              <>
+                Don’t have an account?{" "}
+                <Link href="/auth?mode=signup" className="text-indigo-400 hover:text-indigo-300">
+                  Get started
+                </Link>
+              </>
+            )}
+          </div>
+        </form>
       </div>
     </main>
   );
