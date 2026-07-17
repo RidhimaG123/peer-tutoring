@@ -63,7 +63,7 @@ function AuthForm() {
     e.preventDefault();
     setStatus("Signing up...");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { role } },
@@ -74,7 +74,12 @@ function AuthForm() {
       return;
     }
 
-    setStatus("Signed up ✅ (check email if confirmation is enabled)");
+    if (!data.session) {
+      setStatus("Check your inbox to confirm your email, then log in.");
+      return;
+    }
+
+    router.push("/onboarding");
   }
 
   async function handleForgotPassword() {
