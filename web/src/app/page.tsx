@@ -66,7 +66,7 @@ export default function Home() {
           </Link>
           <Link
             href="/auth?mode=login"
-            className="rounded-xl border border-zinc-700 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-900 transition-colors"
+            className="rounded-xl border border-zinc-400 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-900 transition-colors"
           >
             Log in
           </Link>

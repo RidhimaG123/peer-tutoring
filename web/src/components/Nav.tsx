@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { BookOpen, LogOut, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
 
 export default function Nav() {
+  const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -49,6 +51,10 @@ export default function Nav() {
 
   const dashboardHref =
     role === "admin" ? "/admin" : role === "mentor" ? "/mentor" : "/student";
+
+  if (pathname === "/" && !authed) {
+    return null;
+  }
 
   return (
     <nav className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
