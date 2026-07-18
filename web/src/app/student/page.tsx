@@ -2,12 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Star } from "lucide-react";
+import { Star, Menu, X, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDayLabel } from "@/lib/weekSlots";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
 import TimeSlotPicker from "@/components/TimeSlotPicker";
+
+type Section = "feed" | "find-tutor" | "my-sessions" | "mentor-profiles" | "profile";
+
+const NAV_ITEMS: { key: Section; label: string }[] = [
+  { key: "feed", label: "Feed" },
+  { key: "find-tutor", label: "Find a Tutor" },
+  { key: "my-sessions", label: "My Sessions" },
+  { key: "mentor-profiles", label: "Mentor Profiles" },
+];
 
 type MentorProfile = {
   id: string;
@@ -45,7 +54,8 @@ export default function StudentDashboard() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
   const [requestingMentorId, setRequestingMentorId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "mentors" | "profile">("dashboard");
+  const [activeSection, setActiveSection] = useState<Section>("my-sessions");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -317,255 +327,315 @@ export default function StudentDashboard() {
       )
     : undefined;
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setTimeout(() => { window.location.href = "/"; }, 500);
+  }
+
+  const sidebarNav = (onNavigate?: () => void) => (
+    <>
+      <div className="px-5 py-5 text-lg font-semibold text-white">PeerPrep</div>
+      <nav className="flex-1 space-y-1 px-3">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => { setActiveSection(item.key); onNavigate?.(); }}
+            className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+              activeSection === item.key ? "bg-indigo-600 text-white" : "text-zinc-300 hover:bg-zinc-800"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      <div className="space-y-1 px-3 pb-5">
+        <button
+          type="button"
+          onClick={() => { setActiveSection("profile"); onNavigate?.(); }}
+          className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+            activeSection === "profile" ? "bg-indigo-600 text-white" : "text-zinc-300 hover:bg-zinc-800"
+          }`}
+        >
+          Profile
+        </button>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800"
+        >
+          <LogOut size={14} /> Log out
+        </button>
+      </div>
+    </>
+  );
+
   return (
-    <main className="min-h-dvh bg-zinc-50 text-zinc-900">
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <Card>
-          <Button variant="secondary" onClick={() => router.push("/")} className="mb-3">← Home</Button>
-          <div className="text-lg font-semibold">Student Dashboard</div>
-          <p className="mt-2 text-sm text-zinc-600">
-            Browse mentors and profile details in this milestone.
-          </p>
-        </Card>
+    <div className="flex min-h-dvh bg-zinc-50 text-zinc-900">
+      <aside className="hidden md:flex md:w-56 md:flex-col md:bg-zinc-900">
+        {sidebarNav()}
+      </aside>
 
-        <Card className="mt-4">
-          <div className="flex gap-2">
-            <Button
-              variant={activeTab === "dashboard" ? "primary" : "secondary"}
-              onClick={() => setActiveTab("dashboard")}
-              className="!px-3 !py-1.5 !text-xs"
-            >
-              Dashboard
-            </Button>
-            <Button
-              variant={activeTab === "mentors" ? "primary" : "secondary"}
-              onClick={() => setActiveTab("mentors")}
-              className="!px-3 !py-1.5 !text-xs"
-            >
-              Mentors
-            </Button>
-            <Button
-              variant={activeTab === "profile" ? "primary" : "secondary"}
-              onClick={() => setActiveTab("profile")}
-              className="!px-3 !py-1.5 !text-xs"
-            >
-              Profile
-            </Button>
+      <div className="flex-1">
+        <div className="flex items-center justify-between bg-zinc-900 px-4 py-3 text-white md:hidden">
+          <div className="text-lg font-semibold">PeerPrep</div>
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen((open) => !open)}
+            aria-label="Toggle menu"
+          >
+            {mobileSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
+        {mobileSidebarOpen && (
+          <div className="flex flex-col bg-zinc-900 md:hidden">
+            {sidebarNav(() => setMobileSidebarOpen(false))}
           </div>
-        </Card>
+        )}
 
-        {activeTab === "dashboard" && (
-          <>
-            <Card variant="success" className="mt-4">
-              <div className="text-base font-semibold">Today’s Match</div>
-              {matchedMentor ? (
-                <div className="mt-2 space-y-2 text-sm text-zinc-700">
-                  {confirmedSessionToday && (
-                    <div className="flex items-center justify-between gap-3 rounded border bg-white p-3">
-                      <div>
-                        <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
-                        <div><span className="font-medium">Time slot:</span> {confirmedSessionToday.requested_time}</div>
+        <div className="mx-auto max-w-3xl px-4 py-10">
+          {activeSection === "feed" && (
+            <Card>
+              <div className="text-base font-semibold">Feed</div>
+              <p className="mt-2 text-sm text-zinc-600">Coming soon.</p>
+            </Card>
+          )}
+
+          {activeSection === "mentor-profiles" && (
+            <Card>
+              <div className="text-base font-semibold">Mentor Profiles</div>
+              <p className="mt-2 text-sm text-zinc-600">Coming soon.</p>
+            </Card>
+          )}
+
+          {activeSection === "my-sessions" && (
+            <>
+              <Card variant="success">
+                <div className="text-base font-semibold">Today’s Match</div>
+                {matchedMentor ? (
+                  <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                    {confirmedSessionToday && (
+                      <div className="flex items-center justify-between gap-3 rounded border bg-white p-3">
+                        <div>
+                          <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
+                          <div><span className="font-medium">Time slot:</span> {confirmedSessionToday.requested_time}</div>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                          Session confirmed
+                        </span>
                       </div>
-                      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                        Session confirmed
-                      </span>
-                    </div>
-                  )}
-                  <Button variant="secondary" onClick={handleRematch} className="ml-2">Rematch</Button>
-                  <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
-                  <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
-                  <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
-                  <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors">View Mentor Profile</a>
-                  <div className="mt-2">
-                    <TimeSlotPicker
-                      selectedSlot={selectedTimeSlot}
-                      onSelectSlot={setSelectedTimeSlot}
-                      blockedSlots={bookedSessions
-                        .filter((s) => s.mentor_id === matchedMentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
-                        .map((s) => s.requested_time as string)}
-                    />
-                  </div>
-                  <Button
-                    onClick={() => handleRequestSession(matchedMentor.id)}
-                    disabled={requestingMentorId === matchedMentor.id}
-                    className="ml-2"
-                  >
-                    {requestingMentorId === matchedMentor.id ? (
-                      <span className="flex items-center gap-2">
-                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Requesting...
-                      </span>
-                    ) : (
-                      "Request Session"
                     )}
-                  </Button>
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
-              )}
-            </Card>
-
-            <Card className="mt-4">
-              <div className="text-base font-semibold">Session Status</div>
-              <div className="mt-2 space-y-2 text-sm text-zinc-700">
-                {bookedSessions.length === 0 ? (
-                  <p>No sessions booked yet.</p>
-                ) : (
-                  bookedSessions.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between gap-3 rounded border p-3">
-                      <div>
-                        <div><span className="font-medium">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
-                        <div><span className="font-medium">Time slot:</span> {s.requested_time || "Not selected"}</div>
-                        <div><span className="font-medium">Date requested:</span> {new Date(s.created_at).toLocaleDateString()}</div>
-                      </div>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                        s.status === "requested" ? "bg-yellow-100 text-yellow-800" :
-                        s.status === "confirmed" ? "bg-green-100 text-green-800" :
-                        "bg-red-100 text-red-800"
-                      }`}>
-                        {s.status === "requested" ? "Pending" : s.status === "confirmed" ? "Confirmed" : "Declined"}
-                      </span>
+                    <Button variant="secondary" onClick={handleRematch} className="ml-2">Rematch</Button>
+                    <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
+                    <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
+                    <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
+                    <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors">View Mentor Profile</a>
+                    <div className="mt-2">
+                      <TimeSlotPicker
+                        selectedSlot={selectedTimeSlot}
+                        onSelectSlot={setSelectedTimeSlot}
+                        blockedSlots={bookedSessions
+                          .filter((s) => s.mentor_id === matchedMentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
+                          .map((s) => s.requested_time as string)}
+                      />
                     </div>
-                  ))
-                )}
-              </div>
-            </Card>
-
-            <Card variant="warning" className="mt-4">
-              <div className="text-base font-semibold">Pending Ratings</div>
-              <div className="mt-2 space-y-2 text-sm text-zinc-700">
-                {pendingRatings.length === 0 ? (
-                  <p>No sessions to rate.</p>
-                ) : (
-                  pendingRatings.map((session) => (
-                    <div key={session.id} className="rounded border p-3">
-                      <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
-                      <div className="mt-2 flex gap-1">
-                        {[1, 2, 3, 4, 5].map((r) => {
-                          const isFilled = r <= (hoveredRating?.sessionId === session.id ? hoveredRating.rating : 0);
-                          return (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => handleRateSession(session.id, r)}
-                              onMouseEnter={() => setHoveredRating({ sessionId: session.id, rating: r })}
-                              onMouseLeave={() => setHoveredRating(null)}
-                              aria-label={`Rate ${r} star${r === 1 ? "" : "s"}`}
-                              className="text-yellow-400 hover:scale-110 transition-transform"
-                            >
-                              <Star size={18} fill={isFilled ? "currentColor" : "none"} strokeWidth={1.5} />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </Card>
-          </>
-        )}
-
-        {activeTab === "mentors" && (
-          <Card className="mt-4">
-            <div className="text-base font-semibold">Mentor Directory</div>
-            <p className="mt-2 text-sm text-zinc-600">
-              {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
-            </p>
-            <input value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} className="mt-2 w-full rounded border p-2 text-sm" placeholder="Filter by grade" />
-            <input value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="mt-3 w-full rounded border p-2 text-sm" placeholder="Filter by subject" />
-
-
-            <div className="mt-4 grid gap-3">
-              {mentors.length === 0 && (
-                <div className="text-sm text-zinc-500">No mentors available yet.</div>
-              )}
-              {filteredMentors.map((mentor) => {
-                const initials = (mentor.display_name || "?")
-                  .trim()
-                  .split(/\s+/)
-                  .slice(0, 2)
-                  .map((part) => part[0]?.toUpperCase())
-                  .join("");
-                const roundedRating = Math.round(mentor.average_rating ?? 0);
-
-                return (
-                  <div key={mentor.id} className="block w-full text-left">
-                    <div className="rounded-xl border p-4 hover:bg-zinc-50">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-                          {initials}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-semibold">
-                            {mentor.display_name || "Unnamed mentor"}
-                          </div>
-                          <div className="mt-0.5 text-sm text-zinc-600">
-                            {mentor.headline || "No headline yet."}
-                          </div>
-                          <div className="mt-2 flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                size={14}
-                                className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
-                                fill={star <= roundedRating ? "currentColor" : "none"}
-                              />
-                            ))}
-                            <span className="ml-1 text-xs text-zinc-500">
-                              {mentor.average_rating ? `${mentor.average_rating.toFixed(1)}/5` : "No ratings yet"}
-                            </span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {mentor.subjects && mentor.subjects.length > 0 ? (
-                              mentor.subjects.map((subject) => (
-                                <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
-                                  {subject}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-zinc-500">No subjects listed.</span>
-                            )}
-                          </div>
-                          <div className="mt-2 text-xs text-zinc-500">
-                            {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-3">
-                        <TimeSlotPicker
-                          selectedSlot={selectedTimeSlot}
-                          onSelectSlot={setSelectedTimeSlot}
-                          blockedSlots={bookedSessions
-                            .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
-                            .map((s) => s.requested_time as string)}
-                        />
-                      </div>
-                      <Button
-                        onClick={() => handleRequestSession(mentor.id)}
-                        disabled={requestingMentorId === mentor.id}
-                        className="mt-3"
-                      >
-                        {requestingMentorId === mentor.id ? (
-                          <span className="flex items-center gap-2">
-                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            Requesting...
-                          </span>
-                        ) : (
-                          "Request Session"
-                        )}
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={() => handleRequestSession(matchedMentor.id)}
+                      disabled={requestingMentorId === matchedMentor.id}
+                      className="ml-2"
+                    >
+                      {requestingMentorId === matchedMentor.id ? (
+                        <span className="flex items-center gap-2">
+                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Requesting...
+                        </span>
+                      ) : (
+                        "Request Session"
+                      )}
+                    </Button>
                   </div>
-                );
-              })}
-            </div>
-          </Card>
-        )}
+                ) : (
+                  <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
+                )}
+              </Card>
 
-        {activeTab === "profile" && (
-          <>
-            <Card className="mt-4">
+              <Card className="mt-4">
+                <div className="text-base font-semibold">Session Status</div>
+                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                  {bookedSessions.length === 0 ? (
+                    <p>No sessions booked yet.</p>
+                  ) : (
+                    bookedSessions.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-3 rounded border p-3">
+                        <div>
+                          <div><span className="font-medium">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                          <div><span className="font-medium">Time slot:</span> {s.requested_time || "Not selected"}</div>
+                          <div><span className="font-medium">Date requested:</span> {new Date(s.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                          s.status === "requested" ? "bg-yellow-100 text-yellow-800" :
+                          s.status === "confirmed" ? "bg-green-100 text-green-800" :
+                          "bg-red-100 text-red-800"
+                        }`}>
+                          {s.status === "requested" ? "Pending" : s.status === "confirmed" ? "Confirmed" : "Declined"}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+
+              <Card variant="warning" className="mt-4">
+                <div className="text-base font-semibold">Pending Ratings</div>
+                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                  {pendingRatings.length === 0 ? (
+                    <p>No sessions to rate.</p>
+                  ) : (
+                    pendingRatings.map((session) => (
+                      <div key={session.id} className="rounded border p-3">
+                        <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
+                        <div className="mt-2 flex gap-1">
+                          {[1, 2, 3, 4, 5].map((r) => {
+                            const isFilled = r <= (hoveredRating?.sessionId === session.id ? hoveredRating.rating : 0);
+                            return (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => handleRateSession(session.id, r)}
+                                onMouseEnter={() => setHoveredRating({ sessionId: session.id, rating: r })}
+                                onMouseLeave={() => setHoveredRating(null)}
+                                aria-label={`Rate ${r} star${r === 1 ? "" : "s"}`}
+                                className="text-yellow-400 hover:scale-110 transition-transform"
+                              >
+                                <Star size={18} fill={isFilled ? "currentColor" : "none"} strokeWidth={1.5} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+
+              <Card className="mt-4">
+                <div className="text-base font-semibold">Recent Match History</div>
+                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                  {matchHistory.length === 0 ? (
+                    <p>No recent matches yet.</p>
+                  ) : (
+                    matchHistory.map((match, index) => (
+                      <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border p-3">
+                        <div><span className="font-medium">Mentor:</span> {mentors.find((mentor) => mentor.id === match.mentor_id)?.display_name || "Unknown mentor"}</div>
+                        <div><span className="font-medium">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </>
+          )}
+
+          {activeSection === "find-tutor" && (
+            <Card>
+              <div className="text-base font-semibold">Mentor Directory</div>
+              <p className="mt-2 text-sm text-zinc-600">
+                {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
+              </p>
+              <input value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} className="mt-2 w-full rounded border p-2 text-sm" placeholder="Filter by grade" />
+              <input value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="mt-3 w-full rounded border p-2 text-sm" placeholder="Filter by subject" />
+
+
+              <div className="mt-4 grid gap-3">
+                {mentors.length === 0 && (
+                  <div className="text-sm text-zinc-500">No mentors available yet.</div>
+                )}
+                {filteredMentors.map((mentor) => {
+                  const initials = (mentor.display_name || "?")
+                    .trim()
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((part) => part[0]?.toUpperCase())
+                    .join("");
+                  const roundedRating = Math.round(mentor.average_rating ?? 0);
+
+                  return (
+                    <div key={mentor.id} className="block w-full text-left">
+                      <div className="rounded-xl border p-4 hover:bg-zinc-50">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+                            {initials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold">
+                              {mentor.display_name || "Unnamed mentor"}
+                            </div>
+                            <div className="mt-0.5 text-sm text-zinc-600">
+                              {mentor.headline || "No headline yet."}
+                            </div>
+                            <div className="mt-2 flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  size={14}
+                                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
+                                  fill={star <= roundedRating ? "currentColor" : "none"}
+                                />
+                              ))}
+                              <span className="ml-1 text-xs text-zinc-500">
+                                {mentor.average_rating ? `${mentor.average_rating.toFixed(1)}/5` : "No ratings yet"}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {mentor.subjects && mentor.subjects.length > 0 ? (
+                                mentor.subjects.map((subject) => (
+                                  <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                                    {subject}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-zinc-500">No subjects listed.</span>
+                              )}
+                            </div>
+                            <div className="mt-2 text-xs text-zinc-500">
+                              {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <TimeSlotPicker
+                            selectedSlot={selectedTimeSlot}
+                            onSelectSlot={setSelectedTimeSlot}
+                            blockedSlots={bookedSessions
+                              .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
+                              .map((s) => s.requested_time as string)}
+                          />
+                        </div>
+                        <Button
+                          onClick={() => handleRequestSession(mentor.id)}
+                          disabled={requestingMentorId === mentor.id}
+                          className="mt-3"
+                        >
+                          {requestingMentorId === mentor.id ? (
+                            <span className="flex items-center gap-2">
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Requesting...
+                            </span>
+                          ) : (
+                            "Request Session"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {activeSection === "profile" && (
+            <Card>
               <div className="text-base font-semibold">Edit Profile</div>
               <div className="mt-2 space-y-2">
                 <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
@@ -576,25 +646,9 @@ export default function StudentDashboard() {
                 <Button onClick={handleSave} className="mt-2">Save</Button>
               </div>
             </Card>
-
-            <Card className="mt-4">
-              <div className="text-base font-semibold">Recent Match History</div>
-              <div className="mt-2 space-y-2 text-sm text-zinc-700">
-                {matchHistory.length === 0 ? (
-                  <p>No recent matches yet.</p>
-                ) : (
-                  matchHistory.map((match, index) => (
-                    <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border p-3">
-                      <div><span className="font-medium">Mentor:</span> {mentors.find((mentor) => mentor.id === match.mentor_id)?.display_name || "Unknown mentor"}</div>
-                      <div><span className="font-medium">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </Card>
-          </>
-        )}
+          )}
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
