@@ -29,6 +29,10 @@ const SUBJECTS = [
   { name: "Business", emoji: "💼" },
 ];
 
+const DARK_CARD = "!bg-zinc-900 !border-zinc-800 !text-white";
+const DARK_BOX = "rounded border border-zinc-800 bg-zinc-800 p-3";
+const DARK_SECONDARY_BUTTON = "!border-zinc-700 !text-white hover:!bg-zinc-800";
+
 function formatRelativeTime(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diffMs / 60000);
@@ -76,6 +80,14 @@ type RatingEntry = {
   student: { display_name: string | null } | null;
 };
 
+type BookingConfirmation = {
+  mentorId: string;
+  mentorName: string;
+  subject: string | null;
+  slot: string;
+  meetingType: string;
+};
+
 export default function StudentDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -94,9 +106,11 @@ export default function StudentDashboard() {
   const [notifications, setNotifications] = useState<{ id: string; message: string; created_at: string }[]>([]);
   const [ratingEntries, setRatingEntries] = useState<RatingEntry[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [meetingType, setMeetingType] = useState<"online" | "in-person" | null>(null);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
   const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
   const [requestingMentorId, setRequestingMentorId] = useState<string | null>(null);
-  const [justBookedMentorId, setJustBookedMentorId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Section>("my-sessions");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
@@ -123,8 +137,25 @@ export default function StudentDashboard() {
     window.location.reload();
   }
 
+  function handleSelectSlot(slot: string) {
+    setSelectedTimeSlot(slot);
+    setConflictWarning(null);
+  }
+
   async function handleRequestSession(mentorId: string) {
-    if (!mentorId || !selectedTimeSlot) return;
+    if (!mentorId || !selectedTimeSlot || !meetingType) return;
+
+    const conflict = bookedSessions.find(
+      (s) => s.requested_time === selectedTimeSlot && (s.status === "requested" || s.status === "confirmed")
+    );
+    if (conflict) {
+      setConflictWarning(
+        conflict.status === "confirmed"
+          ? "You already have a session booked at this time"
+          : "You have a pending request at this time"
+      );
+      return;
+    }
 
     setRequestingMentorId(mentorId);
     try {
@@ -138,6 +169,7 @@ export default function StudentDashboard() {
           student_id: session.user.id,
           mentor_id: mentorId,
           requested_time: selectedTimeSlot,
+          meeting_type: meetingType,
           status: "requested",
         });
 
@@ -146,11 +178,16 @@ export default function StudentDashboard() {
         return;
       }
 
-      setJustBookedMentorId(mentorId);
+      const bookedMentor = mentors.find((m) => m.id === mentorId);
+      setBookingConfirmation({
+        mentorId,
+        mentorName: bookedMentor?.display_name || "Unnamed mentor",
+        subject: selectedSubject || bookedMentor?.subjects?.join(", ") || null,
+        slot: selectedTimeSlot,
+        meetingType: meetingType === "in-person" ? "In person" : "Online",
+      });
       setExpandedMentorId(null);
-      setTimeout(() => {
-        setJustBookedMentorId((current) => (current === mentorId ? null : current));
-      }, 2000);
+      setConflictWarning(null);
 
       try {
         const studentEmail = session.user.email ?? "";
@@ -166,9 +203,6 @@ export default function StudentDashboard() {
       } catch (emailErr) {
         console.error("email send error (non-fatal):", emailErr);
       }
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      window.location.reload();
     } finally {
       setRequestingMentorId(null);
     }
@@ -406,27 +440,70 @@ export default function StudentDashboard() {
     setTimeout(() => { window.location.href = "/"; }, 500);
   }
 
+  function renderMeetingTypeStep() {
+    return (
+      <div>
+        <div className="text-sm text-zinc-400">How do you want to meet?</div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setMeetingType("online")}
+            className={`rounded-xl border p-3 text-sm font-medium transition-colors ${
+              meetingType === "online" ? "border-indigo-500 bg-indigo-600 text-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
+            }`}
+          >
+            Online
+          </button>
+          <button
+            type="button"
+            onClick={() => setMeetingType("in-person")}
+            className={`rounded-xl border p-3 text-sm font-medium transition-colors ${
+              meetingType === "in-person" ? "border-indigo-500 bg-indigo-600 text-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
+            }`}
+          >
+            In person
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderBookingConfirmation(confirmation: BookingConfirmation) {
+    return (
+      <div className={`mt-3 space-y-2 ${DARK_BOX}`}>
+        <p className="font-medium text-white">Your request has been sent. The mentor will accept or decline shortly.</p>
+        <div className="space-y-1 text-sm text-zinc-400">
+          <div><span className="text-zinc-500">Mentor:</span> {confirmation.mentorName}</div>
+          <div><span className="text-zinc-500">Subject:</span> {confirmation.subject || "Not selected"}</div>
+          <div><span className="text-zinc-500">Time slot:</span> {confirmation.slot}</div>
+          <div><span className="text-zinc-500">Meeting type:</span> {confirmation.meetingType}</div>
+        </div>
+        <Button onClick={() => window.location.reload()} className="mt-2">Done</Button>
+      </div>
+    );
+  }
+
   function renderMentorBookingCard(mentor: MentorProfile) {
     const initials = initialsFor(mentor.display_name);
     const roundedRating = Math.round(mentor.average_rating ?? 0);
     const isExpanded = expandedMentorId === mentor.id;
-    const justBooked = justBookedMentorId === mentor.id;
+    const confirmation = bookingConfirmation?.mentorId === mentor.id ? bookingConfirmation : null;
 
     return (
-      <div key={mentor.id} className="rounded-xl border p-4">
+      <div key={mentor.id} className="rounded-xl border border-zinc-800 p-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold">{mentor.display_name || "Unnamed mentor"}</div>
-            <div className="mt-0.5 text-sm text-zinc-600">{mentor.grade || "Year not set"}</div>
+            <div className="text-sm font-semibold text-white">{mentor.display_name || "Unnamed mentor"}</div>
+            <div className="mt-0.5 text-sm text-zinc-400">{mentor.grade || "Year not set"}</div>
             <div className="mt-2 flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
                   size={14}
-                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
+                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-600"}
                   fill={star <= roundedRating ? "currentColor" : "none"}
                 />
               ))}
@@ -437,7 +514,7 @@ export default function StudentDashboard() {
             <div className="mt-2 flex flex-wrap gap-1">
               {mentor.subjects && mentor.subjects.length > 0 ? (
                 mentor.subjects.map((subject) => (
-                  <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                  <span key={subject} className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
                     {subject}
                   </span>
                 ))
@@ -448,31 +525,32 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {justBooked && (
-          <div className="mt-3 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-            Session requested
-          </div>
-        )}
+        {confirmation && renderBookingConfirmation(confirmation)}
 
-        {!isExpanded && !justBooked && (
+        {!isExpanded && !confirmation && (
           <Button onClick={() => setExpandedMentorId(mentor.id)} className="mt-3">
             Book session
           </Button>
         )}
 
-        {isExpanded && (
-          <div className="mt-3 space-y-3 rounded border p-3">
+        {isExpanded && !confirmation && (
+          <div className={`mt-3 space-y-3 ${DARK_BOX}`}>
             <TimeSlotPicker
               selectedSlot={selectedTimeSlot}
-              onSelectSlot={setSelectedTimeSlot}
+              onSelectSlot={handleSelectSlot}
               blockedSlots={bookedSessions
                 .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
                 .map((s) => s.requested_time as string)}
             />
+
+            {selectedTimeSlot && renderMeetingTypeStep()}
+
+            {conflictWarning && <p className="text-sm text-red-400">{conflictWarning}</p>}
+
             <div className="flex gap-2">
               <Button
                 onClick={() => handleRequestSession(mentor.id)}
-                disabled={requestingMentorId === mentor.id}
+                disabled={!selectedTimeSlot || !meetingType || requestingMentorId === mentor.id}
               >
                 {requestingMentorId === mentor.id ? (
                   <span className="flex items-center gap-2">
@@ -483,7 +561,11 @@ export default function StudentDashboard() {
                   "Request session"
                 )}
               </Button>
-              <Button variant="secondary" onClick={() => setExpandedMentorId(null)}>
+              <Button
+                variant="secondary"
+                onClick={() => { setExpandedMentorId(null); setConflictWarning(null); }}
+                className={DARK_SECONDARY_BUTTON}
+              >
                 Cancel
               </Button>
             </div>
@@ -532,12 +614,12 @@ export default function StudentDashboard() {
   );
 
   return (
-    <div className="flex min-h-dvh bg-zinc-50 text-zinc-900">
+    <div className="flex min-h-dvh">
       <aside className="hidden md:flex md:w-56 md:flex-col md:bg-zinc-900">
         {sidebarNav()}
       </aside>
 
-      <div className="flex-1">
+      <div className="flex-1 bg-zinc-950 text-white">
         <div className="flex items-center justify-between bg-zinc-900 px-4 py-3 text-white md:hidden">
           <div className="text-lg font-semibold">PeerPrep</div>
           <button
@@ -557,14 +639,14 @@ export default function StudentDashboard() {
 
         <div className="mx-auto max-w-3xl px-4 py-10">
           {activeSection === "feed" && (
-            <Card>
+            <Card className={DARK_CARD}>
               <div className="text-base font-semibold">Feed</div>
               {notifications.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-600">Nothing here yet. Check back after your first session.</p>
+                <p className="mt-2 text-sm text-zinc-400">Nothing here yet. Check back after your first session.</p>
               ) : (
-                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                <div className="mt-2 space-y-2 text-sm text-zinc-400">
                   {notifications.map((n) => (
-                    <div key={n.id} className="flex items-center justify-between gap-3 rounded border p-3">
+                    <div key={n.id} className="flex items-center justify-between gap-3 rounded border border-zinc-800 p-3">
                       <span>{n.message}</span>
                       <span className="shrink-0 text-xs text-zinc-500">{formatRelativeTime(n.created_at)}</span>
                     </div>
@@ -575,11 +657,11 @@ export default function StudentDashboard() {
           )}
 
           {activeSection === "mentor-profiles" && (
-            <Card>
+            <Card className={DARK_CARD}>
               <div className="text-base font-semibold">Mentor Profiles</div>
               <div className="mt-4 grid gap-4">
                 {mentors.length === 0 ? (
-                  <p className="text-sm text-zinc-600">No mentors have joined yet.</p>
+                  <p className="text-sm text-zinc-400">No mentors have joined yet.</p>
                 ) : (
                   mentors.map((mentor) => {
                     const initials = initialsFor(mentor.display_name);
@@ -589,18 +671,18 @@ export default function StudentDashboard() {
                     const roundedRating = Math.round(mentor.average_rating ?? 0);
 
                     return (
-                      <div key={mentor.id} className="rounded-xl border p-4">
+                      <div key={mentor.id} className="rounded-xl border border-zinc-800 p-4">
                         <div className="flex items-start gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
                             {initials}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold">{mentor.display_name || "Unnamed mentor"}</div>
-                            <div className="mt-0.5 text-sm text-zinc-600">{mentor.grade || "Year not set"}</div>
+                            <div className="text-sm font-semibold text-white">{mentor.display_name || "Unnamed mentor"}</div>
+                            <div className="mt-0.5 text-sm text-zinc-400">{mentor.grade || "Year not set"}</div>
                             <div className="mt-2 flex flex-wrap gap-1">
                               {mentor.subjects && mentor.subjects.length > 0 ? (
                                 mentor.subjects.map((subject) => (
-                                  <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                                  <span key={subject} className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
                                     {subject}
                                   </span>
                                 ))
@@ -612,7 +694,7 @@ export default function StudentDashboard() {
                         </div>
 
                         <div className="mt-4 flex items-center gap-3">
-                          <div className="text-3xl font-semibold">
+                          <div className="text-3xl font-semibold text-white">
                             {mentor.average_rating ? mentor.average_rating.toFixed(1) : "—"}
                           </div>
                           <div>
@@ -621,7 +703,7 @@ export default function StudentDashboard() {
                                 <Star
                                   key={star}
                                   size={14}
-                                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
+                                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-600"}
                                   fill={star <= roundedRating ? "currentColor" : "none"}
                                 />
                               ))}
@@ -638,27 +720,27 @@ export default function StudentDashboard() {
                             {recentFeedback.map((entry, index) => {
                               const studentInitials = initialsFor(entry.student?.display_name);
                               return (
-                                <div key={index} className="rounded border p-2 text-sm">
+                                <div key={index} className="rounded border border-zinc-800 p-2 text-sm">
                                   <div className="flex items-center justify-between">
-                                    <span className="font-medium">{studentInitials}</span>
+                                    <span className="font-medium text-white">{studentInitials}</span>
                                     <div className="flex gap-0.5">
                                       {[1, 2, 3, 4, 5].map((star) => (
                                         <Star
                                           key={star}
                                           size={12}
-                                          className={star <= entry.rating ? "text-yellow-400" : "text-zinc-300"}
+                                          className={star <= entry.rating ? "text-yellow-400" : "text-zinc-600"}
                                           fill={star <= entry.rating ? "currentColor" : "none"}
                                         />
                                       ))}
                                     </div>
                                   </div>
                                   {entry.feedback && (
-                                    <p className="mt-1 text-zinc-600">{entry.feedback}</p>
+                                    <p className="mt-1 text-zinc-400">{entry.feedback}</p>
                                   )}
                                   {entry.student_tags && entry.student_tags.length > 0 && (
                                     <div className="mt-1 flex flex-wrap gap-1">
                                       {entry.student_tags.map((tag) => (
-                                        <span key={tag} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                                        <span key={tag} className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
                                           {tag}
                                         </span>
                                       ))}
@@ -679,68 +761,80 @@ export default function StudentDashboard() {
 
           {activeSection === "my-sessions" && (
             <>
-              <Card variant="success">
+              <Card className={`${DARK_CARD} border-l-4 !border-l-green-500`}>
                 <div className="text-base font-semibold">Today’s Match</div>
                 {matchedMentor ? (
-                  <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                  <div className="mt-2 space-y-2 text-sm text-zinc-400">
                     {confirmedSessionToday && (
-                      <div className="flex items-center justify-between gap-3 rounded border bg-white p-3">
+                      <div className="flex items-center justify-between gap-3 rounded border border-zinc-800 bg-zinc-800 p-3">
                         <div>
-                          <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
-                          <div><span className="font-medium">Time slot:</span> {confirmedSessionToday.requested_time}</div>
+                          <div><span className="font-medium text-white">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
+                          <div><span className="font-medium text-white">Time slot:</span> {confirmedSessionToday.requested_time}</div>
                         </div>
                         <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
                           Session confirmed
                         </span>
                       </div>
                     )}
-                    <Button variant="secondary" onClick={handleRematch} className="ml-2">Rematch</Button>
-                    <div><span className="font-medium">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
-                    <div><span className="font-medium">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
-                    <div><span className="font-medium">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
+                    <Button variant="secondary" onClick={handleRematch} className={`ml-2 ${DARK_SECONDARY_BUTTON}`}>Rematch</Button>
+                    <div><span className="font-medium text-white">Mentor:</span> {matchedMentor.display_name || "Unnamed mentor"}</div>
+                    <div><span className="font-medium text-white">Subjects:</span> {matchedMentor.subjects?.join(", ") || "No subjects listed."}</div>
+                    <div><span className="font-medium text-white">Bio:</span> {matchedMentor.bio ? matchedMentor.bio.slice(0, 80) + "..." : "No bio yet."}</div>
                     <a href={`/student/mentor/${matchedMentor.id}`} className="inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 transition-colors">View Mentor Profile</a>
-                    <div className="mt-2">
-                      <TimeSlotPicker
-                        selectedSlot={selectedTimeSlot}
-                        onSelectSlot={setSelectedTimeSlot}
-                        blockedSlots={bookedSessions
-                          .filter((s) => s.mentor_id === matchedMentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
-                          .map((s) => s.requested_time as string)}
-                      />
-                    </div>
-                    <Button
-                      onClick={() => handleRequestSession(matchedMentor.id)}
-                      disabled={requestingMentorId === matchedMentor.id}
-                      className="ml-2"
-                    >
-                      {requestingMentorId === matchedMentor.id ? (
-                        <span className="flex items-center gap-2">
-                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          Requesting...
-                        </span>
-                      ) : (
-                        "Request Session"
-                      )}
-                    </Button>
+
+                    {bookingConfirmation?.mentorId === matchedMentor.id ? (
+                      renderBookingConfirmation(bookingConfirmation)
+                    ) : (
+                      <>
+                        <div className="mt-2">
+                          <TimeSlotPicker
+                            selectedSlot={selectedTimeSlot}
+                            onSelectSlot={handleSelectSlot}
+                            blockedSlots={bookedSessions
+                              .filter((s) => s.mentor_id === matchedMentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
+                              .map((s) => s.requested_time as string)}
+                          />
+                        </div>
+
+                        {selectedTimeSlot && renderMeetingTypeStep()}
+
+                        {conflictWarning && <p className="text-sm text-red-400">{conflictWarning}</p>}
+
+                        <Button
+                          onClick={() => handleRequestSession(matchedMentor.id)}
+                          disabled={!selectedTimeSlot || !meetingType || requestingMentorId === matchedMentor.id}
+                          className="ml-2"
+                        >
+                          {requestingMentorId === matchedMentor.id ? (
+                            <span className="flex items-center gap-2">
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Requesting...
+                            </span>
+                          ) : (
+                            "Request Session"
+                          )}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-zinc-700">No mentor assigned yet.</p>
+                  <p className="mt-2 text-sm text-zinc-400">No mentor assigned yet.</p>
                 )}
               </Card>
 
-              <Card className="mt-4">
+              <Card className={`${DARK_CARD} mt-4`}>
                 <div className="text-base font-semibold">Session Status</div>
-                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                <div className="mt-2 space-y-2 text-sm text-zinc-400">
                   {bookedSessions.length === 0 ? (
                     <p>You have not booked any sessions yet.</p>
                   ) : (
                     bookedSessions.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-3 rounded border p-3">
+                      <div key={s.id} className="flex items-center justify-between gap-3 rounded border border-zinc-800 p-3">
                         <div>
-                          <div><span className="font-medium">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
-                          <div><span className="font-medium">Subject:</span> {s.requested_time || "Not selected"}</div>
-                          <div><span className="font-medium">Time slot:</span> {s.requested_time || "Not selected"}</div>
-                          <div><span className="font-medium">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
+                          <div><span className="font-medium text-white">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                          <div><span className="font-medium text-white">Subject:</span> {s.requested_time || "Not selected"}</div>
+                          <div><span className="font-medium text-white">Time slot:</span> {s.requested_time || "Not selected"}</div>
+                          <div><span className="font-medium text-white">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                           s.status === "requested" ? "bg-yellow-100 text-yellow-800" :
@@ -755,20 +849,20 @@ export default function StudentDashboard() {
                 </div>
               </Card>
 
-              <Card className="mt-4">
+              <Card className={`${DARK_CARD} mt-4`}>
                 <div className="text-base font-semibold">Past Sessions</div>
-                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                <div className="mt-2 space-y-2 text-sm text-zinc-400">
                   {pastSessions.length === 0 ? (
                     <p>No past sessions yet.</p>
                   ) : (
                     pastSessions.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-3 rounded border p-3">
+                      <div key={s.id} className="flex items-center justify-between gap-3 rounded border border-zinc-800 p-3">
                         <div>
-                          <div><span className="font-medium">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
-                          <div><span className="font-medium">Time slot:</span> {s.requested_time || "Not selected"}</div>
-                          <div><span className="font-medium">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
+                          <div><span className="font-medium text-white">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                          <div><span className="font-medium text-white">Time slot:</span> {s.requested_time || "Not selected"}</div>
+                          <div><span className="font-medium text-white">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
                         </div>
-                        <Button variant="secondary" onClick={() => {}} className="!px-3 !py-1 !text-xs">
+                        <Button variant="secondary" onClick={() => {}} className={`!px-3 !py-1 !text-xs ${DARK_SECONDARY_BUTTON}`}>
                           Leave feedback
                         </Button>
                       </div>
@@ -777,15 +871,15 @@ export default function StudentDashboard() {
                 </div>
               </Card>
 
-              <Card variant="warning" className="mt-4">
+              <Card className={`${DARK_CARD} border-l-4 !border-l-yellow-500 mt-4`}>
                 <div className="text-base font-semibold">Pending Ratings</div>
-                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                <div className="mt-2 space-y-2 text-sm text-zinc-400">
                   {pendingRatings.length === 0 ? (
                     <p>No sessions to rate.</p>
                   ) : (
                     pendingRatings.map((session) => (
-                      <div key={session.id} className="rounded border p-3">
-                        <div><span className="font-medium">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
+                      <div key={session.id} className="rounded border border-zinc-800 p-3">
+                        <div><span className="font-medium text-white">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
                         <div className="mt-2 flex gap-1">
                           {[1, 2, 3, 4, 5].map((r) => {
                             const isFilled = r <= (hoveredRating?.sessionId === session.id ? hoveredRating.rating : 0);
@@ -810,16 +904,16 @@ export default function StudentDashboard() {
                 </div>
               </Card>
 
-              <Card className="mt-4">
+              <Card className={`${DARK_CARD} mt-4`}>
                 <div className="text-base font-semibold">Recent Match History</div>
-                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                <div className="mt-2 space-y-2 text-sm text-zinc-400">
                   {matchHistory.length === 0 ? (
                     <p>No recent matches yet.</p>
                   ) : (
                     matchHistory.map((match, index) => (
-                      <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border p-3">
-                        <div><span className="font-medium">Mentor:</span> {mentors.find((mentor) => mentor.id === match.mentor_id)?.display_name || "Unknown mentor"}</div>
-                        <div><span className="font-medium">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
+                      <div key={`${match.mentor_id}-${match.created_at}-${index}`} className="rounded border border-zinc-800 p-3">
+                        <div><span className="font-medium text-white">Mentor:</span> {mentors.find((mentor) => mentor.id === match.mentor_id)?.display_name || "Unknown mentor"}</div>
+                        <div><span className="font-medium text-white">Date:</span> {new Date(match.created_at).toLocaleDateString()}</div>
                       </div>
                     ))
                   )}
@@ -829,7 +923,7 @@ export default function StudentDashboard() {
           )}
 
           {activeSection === "find-tutor" && (
-            <Card>
+            <Card className={DARK_CARD}>
               <div className="text-base font-semibold">Find a Tutor</div>
 
               {!selectedSubject ? (
@@ -839,7 +933,7 @@ export default function StudentDashboard() {
                       key={subject.name}
                       type="button"
                       onClick={() => setSelectedSubject(subject.name)}
-                      className="rounded-xl border p-4 text-center hover:bg-zinc-50"
+                      className="rounded-xl border border-zinc-800 p-4 text-center hover:bg-zinc-800"
                     >
                       <div className="text-2xl">{subject.emoji}</div>
                       <div className="mt-1 text-sm font-medium">{subject.name}</div>
@@ -851,11 +945,11 @@ export default function StudentDashboard() {
                   <button
                     type="button"
                     onClick={() => { setSelectedSubject(null); setExpandedMentorId(null); }}
-                    className="text-sm text-indigo-600 hover:text-indigo-700"
+                    className="text-sm text-indigo-400 hover:text-indigo-300"
                   >
                     ← Choose a different subject
                   </button>
-                  <p className="mt-2 text-sm text-zinc-600">
+                  <p className="mt-2 text-sm text-zinc-400">
                     {subjectMentors.length === 0
                       ? `No mentors teach ${selectedSubject} yet.`
                       : `${subjectMentors.length} mentor${subjectMentors.length === 1 ? "" : "s"} teaching ${selectedSubject}.`}
@@ -870,14 +964,14 @@ export default function StudentDashboard() {
           )}
 
           {activeSection === "profile" && (
-            <Card>
+            <Card className={DARK_CARD}>
               <div className="text-base font-semibold">Edit Profile</div>
               <div className="mt-2 space-y-2">
-                <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Name" />
-                <input value={gradeInput} onChange={(e) => setGradeInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Grade" />
-                <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Subjects (comma separated)" />
-                <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Bio" />
-                <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border p-2 text-sm" placeholder="Availability" />
+                <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 p-2 text-sm text-white placeholder:text-zinc-500" placeholder="Name" />
+                <input value={gradeInput} onChange={(e) => setGradeInput(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 p-2 text-sm text-white placeholder:text-zinc-500" placeholder="Grade" />
+                <input value={subjectsInput} onChange={(e) => setSubjectsInput(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 p-2 text-sm text-white placeholder:text-zinc-500" placeholder="Subjects (comma separated)" />
+                <textarea value={bioInput} onChange={(e) => setBioInput(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 p-2 text-sm text-white placeholder:text-zinc-500" placeholder="Bio" />
+                <input value={availabilityInput} onChange={(e) => setAvailabilityInput(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 p-2 text-sm text-white placeholder:text-zinc-500" placeholder="Availability" />
                 <Button onClick={handleSave} className="mt-2">Save</Button>
               </div>
             </Card>
