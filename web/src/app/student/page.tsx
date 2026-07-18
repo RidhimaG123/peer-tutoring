@@ -18,12 +18,44 @@ const NAV_ITEMS: { key: Section; label: string }[] = [
   { key: "mentor-profiles", label: "Mentor Profiles" },
 ];
 
+const SUBJECTS = [
+  { name: "Maths", emoji: "🧮" },
+  { name: "English", emoji: "📚" },
+  { name: "Economics", emoji: "📈" },
+  { name: "Chemistry", emoji: "🧪" },
+  { name: "Biology", emoji: "🧬" },
+  { name: "Physics", emoji: "⚛️" },
+  { name: "Computer Science", emoji: "💻" },
+  { name: "Business", emoji: "💼" },
+];
+
+function formatRelativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function initialsFor(name: string | null | undefined): string {
+  return (name || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
 type MentorProfile = {
   id: string;
   display_name: string | null;
   headline: string | null;
   bio: string | null;
   subjects: string[] | null;
+  grade: string | null;
   average_rating: number | null;
 };
 
@@ -33,6 +65,15 @@ type StudentProfile = {
   bio: string | null;
   subjects: string[] | null;
   availability_preference: string | null;
+};
+
+type RatingEntry = {
+  mentor_id: string;
+  rating: number;
+  feedback: string | null;
+  student_tags: string[] | null;
+  created_at: string;
+  student: { display_name: string | null } | null;
 };
 
 export default function StudentDashboard() {
@@ -45,17 +86,22 @@ export default function StudentDashboard() {
   const [gradeInput, setGradeInput] = useState("");
   const [subjectsInput, setSubjectsInput] = useState("");
   const [bioInput, setBioInput] = useState("");
-  const [subjectFilter, setSubjectFilter] = useState("");
-  const [gradeFilter, setGradeFilter] = useState("");
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
   const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; created_at: string; mentor_id: string; mentor: { display_name: string | null } | null }[]>([]);
+  const [pastSessions, setPastSessions] = useState<{ id: string; requested_time: string | null; created_at: string; mentor: { display_name: string | null } | null }[]>([]);
+  const [notifications, setNotifications] = useState<{ id: string; message: string; created_at: string }[]>([]);
+  const [ratingEntries, setRatingEntries] = useState<RatingEntry[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
   const [requestingMentorId, setRequestingMentorId] = useState<string | null>(null);
+  const [justBookedMentorId, setJustBookedMentorId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Section>("my-sessions");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [expandedMentorId, setExpandedMentorId] = useState<string | null>(null);
+
   async function handleSave() {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -99,6 +145,12 @@ export default function StudentDashboard() {
         console.error("request session error", error);
         return;
       }
+
+      setJustBookedMentorId(mentorId);
+      setExpandedMentorId(null);
+      setTimeout(() => {
+        setJustBookedMentorId((current) => (current === mentorId ? null : current));
+      }, 2000);
 
       try {
         const studentEmail = session.user.email ?? "";
@@ -258,10 +310,39 @@ export default function StudentDashboard() {
           .order("created_at", { ascending: false });
 
         setPendingRatings(pendingRatingData ?? []);
+
+        const { data: pastSessionsData } = await supabase
+          .from("sessions")
+          .select("id, requested_time, created_at, mentor:profiles!sessions_mentor_id_fkey(display_name)")
+          .eq("student_id", session.user.id)
+          .eq("status", "completed")
+          .order("created_at", { ascending: false });
+
+        setPastSessions((pastSessionsData ?? []).map((s) => ({
+          ...s,
+          mentor: Array.isArray(s.mentor) ? s.mentor[0] ?? null : s.mentor,
+        })));
+
+        const { data: notificationsData } = await supabase
+          .from("notifications")
+          .select("id, message, created_at")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false });
+
+        setNotifications(notificationsData ?? []);
+
         const { data: ratingData } = await supabase
           .from("sessions")
-          .select("mentor_id, rating")
-          .not("rating", "is", null);
+          .select("mentor_id, rating, feedback, student_tags, created_at, student:profiles!sessions_student_id_fkey(display_name)")
+          .not("rating", "is", null)
+          .order("created_at", { ascending: false });
+
+        const normalizedRatingEntries = (ratingData ?? []).map((r) => ({
+          ...r,
+          student: Array.isArray(r.student) ? r.student[0] ?? null : r.student,
+        })) as RatingEntry[];
+
+        setRatingEntries(normalizedRatingEntries);
 
         const { data: bookedSessionsData } = await supabase
           .from("sessions")
@@ -278,14 +359,14 @@ export default function StudentDashboard() {
 
         const { data: mentorsData } = await supabase
           .from("profiles")
-          .select("id, display_name, headline, bio, subjects")
+          .select("id, display_name, headline, bio, subjects, grade")
           .eq("role", "mentor")
           .order("created_at", { ascending: false });
 
         const mentorsWithRatings = (mentorsData ?? []).map((mentor) => {
-          const mentorRatings = (ratingData ?? [])
-            .filter((session) => session.mentor_id === mentor.id)
-            .map((session) => session.rating as number);
+          const mentorRatings = normalizedRatingEntries
+            .filter((r) => r.mentor_id === mentor.id)
+            .map((r) => r.rating);
 
           const average_rating = mentorRatings.length > 0
             ? mentorRatings.reduce((sum, rating) => sum + rating, 0) / mentorRatings.length
@@ -303,17 +384,6 @@ export default function StudentDashboard() {
     checkAccess();
   }, [router]);
 
-
-  const filteredMentors = mentors.filter((mentor) => {
-    const subjectMatch = !subjectFilter || mentor.subjects?.some((s) =>
-      s.toLowerCase().includes(subjectFilter.toLowerCase())
-    );
-
-    const gradeMatch = !gradeFilter || mentor.headline?.toLowerCase().includes(gradeFilter.toLowerCase());
-
-    return subjectMatch && gradeMatch;
-  });
-
   if (loading) return null;
 
   const matchedMentor = mentors.find((mentor) => mentor.id === matchedMentorId) ?? null;
@@ -327,9 +397,100 @@ export default function StudentDashboard() {
       )
     : undefined;
 
+  const subjectMentors = selectedSubject
+    ? mentors.filter((mentor) => mentor.subjects?.includes(selectedSubject))
+    : [];
+
   async function handleLogout() {
     await supabase.auth.signOut();
     setTimeout(() => { window.location.href = "/"; }, 500);
+  }
+
+  function renderMentorBookingCard(mentor: MentorProfile) {
+    const initials = initialsFor(mentor.display_name);
+    const roundedRating = Math.round(mentor.average_rating ?? 0);
+    const isExpanded = expandedMentorId === mentor.id;
+    const justBooked = justBookedMentorId === mentor.id;
+
+    return (
+      <div key={mentor.id} className="rounded-xl border p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold">{mentor.display_name || "Unnamed mentor"}</div>
+            <div className="mt-0.5 text-sm text-zinc-600">{mentor.grade || "Year not set"}</div>
+            <div className="mt-2 flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  size={14}
+                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
+                  fill={star <= roundedRating ? "currentColor" : "none"}
+                />
+              ))}
+              <span className="ml-1 text-xs text-zinc-500">
+                {mentor.average_rating ? `${mentor.average_rating.toFixed(1)}/5` : "No ratings yet"}
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {mentor.subjects && mentor.subjects.length > 0 ? (
+                mentor.subjects.map((subject) => (
+                  <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                    {subject}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-zinc-500">No subjects listed.</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {justBooked && (
+          <div className="mt-3 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+            Session requested
+          </div>
+        )}
+
+        {!isExpanded && !justBooked && (
+          <Button onClick={() => setExpandedMentorId(mentor.id)} className="mt-3">
+            Book session
+          </Button>
+        )}
+
+        {isExpanded && (
+          <div className="mt-3 space-y-3 rounded border p-3">
+            <TimeSlotPicker
+              selectedSlot={selectedTimeSlot}
+              onSelectSlot={setSelectedTimeSlot}
+              blockedSlots={bookedSessions
+                .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
+                .map((s) => s.requested_time as string)}
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleRequestSession(mentor.id)}
+                disabled={requestingMentorId === mentor.id}
+              >
+                {requestingMentorId === mentor.id ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Requesting...
+                  </span>
+                ) : (
+                  "Request session"
+                )}
+              </Button>
+              <Button variant="secondary" onClick={() => setExpandedMentorId(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   const sidebarNav = (onNavigate?: () => void) => (
@@ -398,14 +559,121 @@ export default function StudentDashboard() {
           {activeSection === "feed" && (
             <Card>
               <div className="text-base font-semibold">Feed</div>
-              <p className="mt-2 text-sm text-zinc-600">Coming soon.</p>
+              {notifications.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-600">Nothing here yet. Check back after your first session.</p>
+              ) : (
+                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                  {notifications.map((n) => (
+                    <div key={n.id} className="flex items-center justify-between gap-3 rounded border p-3">
+                      <span>{n.message}</span>
+                      <span className="shrink-0 text-xs text-zinc-500">{formatRelativeTime(n.created_at)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           )}
 
           {activeSection === "mentor-profiles" && (
             <Card>
               <div className="text-base font-semibold">Mentor Profiles</div>
-              <p className="mt-2 text-sm text-zinc-600">Coming soon.</p>
+              <div className="mt-4 grid gap-4">
+                {mentors.length === 0 ? (
+                  <p className="text-sm text-zinc-600">No mentors have joined yet.</p>
+                ) : (
+                  mentors.map((mentor) => {
+                    const initials = initialsFor(mentor.display_name);
+                    const mentorFeedback = ratingEntries.filter((r) => r.mentor_id === mentor.id);
+                    const totalRatings = mentorFeedback.length;
+                    const recentFeedback = mentorFeedback.slice(0, 3);
+                    const roundedRating = Math.round(mentor.average_rating ?? 0);
+
+                    return (
+                      <div key={mentor.id} className="rounded-xl border p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+                            {initials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold">{mentor.display_name || "Unnamed mentor"}</div>
+                            <div className="mt-0.5 text-sm text-zinc-600">{mentor.grade || "Year not set"}</div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {mentor.subjects && mentor.subjects.length > 0 ? (
+                                mentor.subjects.map((subject) => (
+                                  <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                                    {subject}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-zinc-500">No subjects listed.</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-3">
+                          <div className="text-3xl font-semibold">
+                            {mentor.average_rating ? mentor.average_rating.toFixed(1) : "—"}
+                          </div>
+                          <div>
+                            <div className="flex gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  size={14}
+                                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
+                                  fill={star <= roundedRating ? "currentColor" : "none"}
+                                />
+                              ))}
+                            </div>
+                            <div className="text-xs text-zinc-500">
+                              {totalRatings} rating{totalRatings === 1 ? "" : "s"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {recentFeedback.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            <div className="text-xs font-medium text-zinc-500">Recent feedback</div>
+                            {recentFeedback.map((entry, index) => {
+                              const studentInitials = initialsFor(entry.student?.display_name);
+                              return (
+                                <div key={index} className="rounded border p-2 text-sm">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium">{studentInitials}</span>
+                                    <div className="flex gap-0.5">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <Star
+                                          key={star}
+                                          size={12}
+                                          className={star <= entry.rating ? "text-yellow-400" : "text-zinc-300"}
+                                          fill={star <= entry.rating ? "currentColor" : "none"}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  {entry.feedback && (
+                                    <p className="mt-1 text-zinc-600">{entry.feedback}</p>
+                                  )}
+                                  {entry.student_tags && entry.student_tags.length > 0 && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {entry.student_tags.map((tag) => (
+                                        <span key={tag} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                                          {tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </Card>
           )}
 
@@ -464,14 +732,15 @@ export default function StudentDashboard() {
                 <div className="text-base font-semibold">Session Status</div>
                 <div className="mt-2 space-y-2 text-sm text-zinc-700">
                   {bookedSessions.length === 0 ? (
-                    <p>No sessions booked yet.</p>
+                    <p>You have not booked any sessions yet.</p>
                   ) : (
                     bookedSessions.map((s) => (
                       <div key={s.id} className="flex items-center justify-between gap-3 rounded border p-3">
                         <div>
                           <div><span className="font-medium">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                          <div><span className="font-medium">Subject:</span> {s.requested_time || "Not selected"}</div>
                           <div><span className="font-medium">Time slot:</span> {s.requested_time || "Not selected"}</div>
-                          <div><span className="font-medium">Date requested:</span> {new Date(s.created_at).toLocaleDateString()}</div>
+                          <div><span className="font-medium">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                           s.status === "requested" ? "bg-yellow-100 text-yellow-800" :
@@ -480,6 +749,28 @@ export default function StudentDashboard() {
                         }`}>
                           {s.status === "requested" ? "Pending" : s.status === "confirmed" ? "Confirmed" : "Declined"}
                         </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+
+              <Card className="mt-4">
+                <div className="text-base font-semibold">Past Sessions</div>
+                <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                  {pastSessions.length === 0 ? (
+                    <p>No past sessions yet.</p>
+                  ) : (
+                    pastSessions.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-3 rounded border p-3">
+                        <div>
+                          <div><span className="font-medium">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                          <div><span className="font-medium">Time slot:</span> {s.requested_time || "Not selected"}</div>
+                          <div><span className="font-medium">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <Button variant="secondary" onClick={() => {}} className="!px-3 !py-1 !text-xs">
+                          Leave feedback
+                        </Button>
                       </div>
                     ))
                   )}
@@ -539,98 +830,42 @@ export default function StudentDashboard() {
 
           {activeSection === "find-tutor" && (
             <Card>
-              <div className="text-base font-semibold">Mentor Directory</div>
-              <p className="mt-2 text-sm text-zinc-600">
-                {mentors.length === 0 ? "No mentors found yet." : `${mentors.length} mentor${mentors.length === 1 ? "" : "s"} available.`}
-              </p>
-              <input value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} className="mt-2 w-full rounded border p-2 text-sm" placeholder="Filter by grade" />
-              <input value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="mt-3 w-full rounded border p-2 text-sm" placeholder="Filter by subject" />
+              <div className="text-base font-semibold">Find a Tutor</div>
 
+              {!selectedSubject ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {SUBJECTS.map((subject) => (
+                    <button
+                      key={subject.name}
+                      type="button"
+                      onClick={() => setSelectedSubject(subject.name)}
+                      className="rounded-xl border p-4 text-center hover:bg-zinc-50"
+                    >
+                      <div className="text-2xl">{subject.emoji}</div>
+                      <div className="mt-1 text-sm font-medium">{subject.name}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedSubject(null); setExpandedMentorId(null); }}
+                    className="text-sm text-indigo-600 hover:text-indigo-700"
+                  >
+                    ← Choose a different subject
+                  </button>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    {subjectMentors.length === 0
+                      ? `No mentors teach ${selectedSubject} yet.`
+                      : `${subjectMentors.length} mentor${subjectMentors.length === 1 ? "" : "s"} teaching ${selectedSubject}.`}
+                  </p>
 
-              <div className="mt-4 grid gap-3">
-                {mentors.length === 0 && (
-                  <div className="text-sm text-zinc-500">No mentors available yet.</div>
-                )}
-                {filteredMentors.map((mentor) => {
-                  const initials = (mentor.display_name || "?")
-                    .trim()
-                    .split(/\s+/)
-                    .slice(0, 2)
-                    .map((part) => part[0]?.toUpperCase())
-                    .join("");
-                  const roundedRating = Math.round(mentor.average_rating ?? 0);
-
-                  return (
-                    <div key={mentor.id} className="block w-full text-left">
-                      <div className="rounded-xl border p-4 hover:bg-zinc-50">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-                            {initials}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold">
-                              {mentor.display_name || "Unnamed mentor"}
-                            </div>
-                            <div className="mt-0.5 text-sm text-zinc-600">
-                              {mentor.headline || "No headline yet."}
-                            </div>
-                            <div className="mt-2 flex items-center gap-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  size={14}
-                                  className={star <= roundedRating ? "text-yellow-400" : "text-zinc-300"}
-                                  fill={star <= roundedRating ? "currentColor" : "none"}
-                                />
-                              ))}
-                              <span className="ml-1 text-xs text-zinc-500">
-                                {mentor.average_rating ? `${mentor.average_rating.toFixed(1)}/5` : "No ratings yet"}
-                              </span>
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {mentor.subjects && mentor.subjects.length > 0 ? (
-                                mentor.subjects.map((subject) => (
-                                  <span key={subject} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
-                                    {subject}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-xs text-zinc-500">No subjects listed.</span>
-                              )}
-                            </div>
-                            <div className="mt-2 text-xs text-zinc-500">
-                              {mentor.bio ? mentor.bio.slice(0, 80) + "..." : "No bio yet."}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <TimeSlotPicker
-                            selectedSlot={selectedTimeSlot}
-                            onSelectSlot={setSelectedTimeSlot}
-                            blockedSlots={bookedSessions
-                              .filter((s) => s.mentor_id === mentor.id && (s.status === "requested" || s.status === "confirmed") && s.requested_time)
-                              .map((s) => s.requested_time as string)}
-                          />
-                        </div>
-                        <Button
-                          onClick={() => handleRequestSession(mentor.id)}
-                          disabled={requestingMentorId === mentor.id}
-                          className="mt-3"
-                        >
-                          {requestingMentorId === mentor.id ? (
-                            <span className="flex items-center gap-2">
-                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                              Requesting...
-                            </span>
-                          ) : (
-                            "Request Session"
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                  <div className="mt-4 grid gap-3">
+                    {subjectMentors.map((mentor) => renderMentorBookingCard(mentor))}
+                  </div>
+                </div>
+              )}
             </Card>
           )}
 
