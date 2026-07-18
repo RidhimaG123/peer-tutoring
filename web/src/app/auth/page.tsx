@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
@@ -22,6 +23,8 @@ function AuthForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
@@ -115,27 +118,47 @@ function AuthForm() {
 
           <label className="block">
             <div className="text-xs font-medium text-zinc-400">Password</div>
-            <input
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              autoComplete={isSignupMode ? "new-password" : "current-password"}
-              required
-            />
+            <div className="relative mt-1">
+              <input
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 pr-10 text-sm text-white placeholder:text-zinc-500"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPassword ? "text" : "password"}
+                autoComplete={isSignupMode ? "new-password" : "current-password"}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </label>
 
           {isSignupMode ? (
             <label className="block">
               <div className="text-xs font-medium text-zinc-400">Confirm password</div>
-              <input
-                className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                type="password"
-                autoComplete="new-password"
-                required
-              />
+              <div className="relative mt-1">
+                <input
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 pr-10 text-sm text-white placeholder:text-zinc-500"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </label>
           ) : (
             <button
