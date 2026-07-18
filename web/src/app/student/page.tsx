@@ -101,7 +101,7 @@ export default function StudentDashboard() {
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
   const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
-  const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; created_at: string; mentor_id: string; mentor: { display_name: string | null } | null }[]>([]);
+  const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; subject: string | null; created_at: string; mentor_id: string; mentor: { display_name: string | null } | null }[]>([]);
   const [pastSessions, setPastSessions] = useState<{ id: string; requested_time: string | null; created_at: string; mentor: { display_name: string | null } | null }[]>([]);
   const [notifications, setNotifications] = useState<{ id: string; message: string; created_at: string }[]>([]);
   const [ratingEntries, setRatingEntries] = useState<RatingEntry[]>([]);
@@ -142,7 +142,7 @@ export default function StudentDashboard() {
     setConflictWarning(null);
   }
 
-  async function handleRequestSession(mentorId: string) {
+  async function handleRequestSession(mentorId: string, subject: string | null) {
     if (!mentorId || !selectedTimeSlot || !meetingType) return;
 
     const conflict = bookedSessions.find(
@@ -170,6 +170,7 @@ export default function StudentDashboard() {
           mentor_id: mentorId,
           requested_time: selectedTimeSlot,
           meeting_type: meetingType,
+          subject,
           status: "requested",
         });
 
@@ -182,7 +183,7 @@ export default function StudentDashboard() {
       setBookingConfirmation({
         mentorId,
         mentorName: bookedMentor?.display_name || "Unnamed mentor",
-        subject: selectedSubject || bookedMentor?.subjects?.join(", ") || null,
+        subject,
         slot: selectedTimeSlot,
         meetingType: meetingType === "in-person" ? "In person" : "Online",
       });
@@ -380,7 +381,7 @@ export default function StudentDashboard() {
 
         const { data: bookedSessionsData } = await supabase
           .from("sessions")
-          .select("id, status, requested_time, created_at, mentor_id, mentor:profiles!sessions_mentor_id_fkey(display_name)")
+          .select("id, status, requested_time, subject, created_at, mentor_id, mentor:profiles!sessions_mentor_id_fkey(display_name)")
           .eq("student_id", session.user.id)
           .in("status", ["requested", "confirmed", "declined"])
           .order("created_at", { ascending: false });
@@ -549,7 +550,7 @@ export default function StudentDashboard() {
 
             <div className="flex gap-2">
               <Button
-                onClick={() => handleRequestSession(mentor.id)}
+                onClick={() => handleRequestSession(mentor.id, selectedSubject)}
                 disabled={!selectedTimeSlot || !meetingType || requestingMentorId === mentor.id}
               >
                 {requestingMentorId === mentor.id ? (
@@ -801,7 +802,7 @@ export default function StudentDashboard() {
                         {conflictWarning && <p className="text-sm text-red-400">{conflictWarning}</p>}
 
                         <Button
-                          onClick={() => handleRequestSession(matchedMentor.id)}
+                          onClick={() => handleRequestSession(matchedMentor.id, null)}
                           disabled={!selectedTimeSlot || !meetingType || requestingMentorId === matchedMentor.id}
                           className="ml-2"
                         >
@@ -832,7 +833,7 @@ export default function StudentDashboard() {
                       <div key={s.id} className="flex items-center justify-between gap-3 rounded border border-zinc-800 p-3">
                         <div>
                           <div><span className="font-medium text-white">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
-                          <div><span className="font-medium text-white">Subject:</span> {s.requested_time || "Not selected"}</div>
+                          <div><span className="font-medium text-white">Subject:</span> {s.subject || "Not specified"}</div>
                           <div><span className="font-medium text-white">Time slot:</span> {s.requested_time || "Not selected"}</div>
                           <div><span className="font-medium text-white">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
                         </div>
