@@ -29,6 +29,8 @@ const SUBJECTS = [
   { name: "Business", emoji: "💼" },
 ];
 
+const STUDENT_FEEDBACK_TAGS = ["Explained clearly", "Patient", "Came prepared", "Helped me think", "Would book again"];
+
 const DARK_CARD = "!bg-zinc-900 !border-zinc-800 !text-white";
 const DARK_BOX = "rounded border border-zinc-800 bg-zinc-800 p-3";
 const DARK_SECONDARY_BUTTON = "!border-zinc-700 !text-white hover:!bg-zinc-800";
@@ -100,17 +102,21 @@ export default function StudentDashboard() {
   const [bioInput, setBioInput] = useState("");
   const [availabilityInput, setAvailabilityInput] = useState("");
   const [matchHistory, setMatchHistory] = useState<{ mentor_id: string; created_at: string }[]>([]);
-  const [pendingRatings, setPendingRatings] = useState<{ id: string; mentor_id: string; created_at: string }[]>([]);
   const [bookedSessions, setBookedSessions] = useState<{ id: string; status: string; requested_time: string | null; subject: string | null; created_at: string; mentor_id: string; mentor: { display_name: string | null } | null }[]>([]);
-  const [pastSessions, setPastSessions] = useState<{ id: string; requested_time: string | null; created_at: string; mentor: { display_name: string | null } | null }[]>([]);
+  const [pastSessions, setPastSessions] = useState<{ id: string; requested_time: string | null; subject: string | null; student_rating_of_mentor: number | null; created_at: string; mentor: { display_name: string | null } | null }[]>([]);
   const [notifications, setNotifications] = useState<{ id: string; message: string; created_at: string }[]>([]);
   const [ratingEntries, setRatingEntries] = useState<RatingEntry[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [meetingType, setMeetingType] = useState<"online" | "in-person" | null>(null);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
-  const [hoveredRating, setHoveredRating] = useState<{ sessionId: string; rating: number } | null>(null);
   const [requestingMentorId, setRequestingMentorId] = useState<string | null>(null);
+  const [expandedFeedbackSessionId, setExpandedFeedbackSessionId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [feedbackTags, setFeedbackTags] = useState<string[]>([]);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackThanksSessionId, setFeedbackThanksSessionId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Section>("my-sessions");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
@@ -209,13 +215,42 @@ export default function StudentDashboard() {
     }
   }
 
-  async function handleRateSession(sessionId: string, rating: number) {
-    await supabase
-      .from("sessions")
-      .update({ rating })
-      .eq("id", sessionId);
+  function toggleFeedbackTag(tag: string) {
+    setFeedbackTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
 
-    window.location.reload();
+  function handleOpenFeedback(sessionId: string) {
+    setExpandedFeedbackSessionId(sessionId);
+    setFeedbackRating(null);
+    setFeedbackTags([]);
+    setFeedbackComment("");
+  }
+
+  async function handleSubmitFeedback(sessionId: string) {
+    if (!feedbackRating) return;
+
+    setSubmittingFeedback(true);
+    try {
+      const { error } = await supabase
+        .from("sessions")
+        .update({
+          student_rating_of_mentor: feedbackRating,
+          student_tags: feedbackTags,
+          feedback: feedbackComment.trim() || null,
+        })
+        .eq("id", sessionId);
+
+      if (error) {
+        console.error("submit feedback error", error);
+        return;
+      }
+
+      setExpandedFeedbackSessionId(null);
+      setFeedbackThanksSessionId(sessionId);
+      setTimeout(() => window.location.reload(), 1500);
+    } finally {
+      setSubmittingFeedback(false);
+    }
   }
 
   async function handleRematch() {
@@ -336,19 +371,9 @@ export default function StudentDashboard() {
 
         setMatchHistory(historyData ?? []);
 
-        const { data: pendingRatingData } = await supabase
-          .from("sessions")
-          .select("id, mentor_id, created_at")
-          .eq("student_id", session.user.id)
-          .eq("status", "completed")
-          .is("rating", null)
-          .order("created_at", { ascending: false });
-
-        setPendingRatings(pendingRatingData ?? []);
-
         const { data: pastSessionsData } = await supabase
           .from("sessions")
-          .select("id, requested_time, created_at, mentor:profiles!sessions_mentor_id_fkey(display_name)")
+          .select("id, requested_time, subject, student_rating_of_mentor, created_at, mentor:profiles!sessions_mentor_id_fkey(display_name)")
           .eq("student_id", session.user.id)
           .eq("status", "completed")
           .order("created_at", { ascending: false });
@@ -368,12 +393,16 @@ export default function StudentDashboard() {
 
         const { data: ratingData } = await supabase
           .from("sessions")
-          .select("mentor_id, rating, feedback, student_tags, created_at, student:profiles!sessions_student_id_fkey(display_name)")
-          .not("rating", "is", null)
+          .select("mentor_id, student_rating_of_mentor, feedback, student_tags, created_at, student:profiles!sessions_student_id_fkey(display_name)")
+          .not("student_rating_of_mentor", "is", null)
           .order("created_at", { ascending: false });
 
         const normalizedRatingEntries = (ratingData ?? []).map((r) => ({
-          ...r,
+          mentor_id: r.mentor_id,
+          rating: r.student_rating_of_mentor as number,
+          feedback: r.feedback,
+          student_tags: r.student_tags,
+          created_at: r.created_at,
           student: Array.isArray(r.student) ? r.student[0] ?? null : r.student,
         })) as RatingEntry[];
 
@@ -857,48 +886,93 @@ export default function StudentDashboard() {
                     <p>No past sessions yet.</p>
                   ) : (
                     pastSessions.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-3 rounded border border-zinc-800 p-3">
-                        <div>
-                          <div><span className="font-medium text-white">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
-                          <div><span className="font-medium text-white">Time slot:</span> {s.requested_time || "Not selected"}</div>
-                          <div><span className="font-medium text-white">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
-                        </div>
-                        <Button variant="secondary" onClick={() => {}} className={`!px-3 !py-1 !text-xs ${DARK_SECONDARY_BUTTON}`}>
-                          Leave feedback
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
+                      <div key={s.id} className="rounded border border-zinc-800 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div><span className="font-medium text-white">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                            <div><span className="font-medium text-white">Time slot:</span> {s.requested_time || "Not selected"}</div>
+                            <div><span className="font-medium text-white">Date:</span> {new Date(s.created_at).toLocaleDateString()}</div>
+                          </div>
 
-              <Card className={`${DARK_CARD} border-l-4 !border-l-yellow-500 mt-4`}>
-                <div className="text-base font-semibold">Pending Ratings</div>
-                <div className="mt-2 space-y-2 text-sm text-zinc-400">
-                  {pendingRatings.length === 0 ? (
-                    <p>No sessions to rate.</p>
-                  ) : (
-                    pendingRatings.map((session) => (
-                      <div key={session.id} className="rounded border border-zinc-800 p-3">
-                        <div><span className="font-medium text-white">Mentor:</span> {mentors.find((m) => m.id === session.mentor_id)?.display_name || "Unknown"}</div>
-                        <div className="mt-2 flex gap-1">
-                          {[1, 2, 3, 4, 5].map((r) => {
-                            const isFilled = r <= (hoveredRating?.sessionId === session.id ? hoveredRating.rating : 0);
-                            return (
-                              <button
-                                key={r}
-                                type="button"
-                                onClick={() => handleRateSession(session.id, r)}
-                                onMouseEnter={() => setHoveredRating({ sessionId: session.id, rating: r })}
-                                onMouseLeave={() => setHoveredRating(null)}
-                                aria-label={`Rate ${r} star${r === 1 ? "" : "s"}`}
-                                className="text-yellow-400 hover:scale-110 transition-transform"
-                              >
-                                <Star size={18} fill={isFilled ? "currentColor" : "none"} strokeWidth={1.5} />
-                              </button>
-                            );
-                          })}
+                          {feedbackThanksSessionId === s.id ? (
+                            <span className="shrink-0 text-sm text-green-400">Thanks for your feedback</span>
+                          ) : s.student_rating_of_mentor === null && expandedFeedbackSessionId !== s.id ? (
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleOpenFeedback(s.id)}
+                              className={`shrink-0 !px-3 !py-1 !text-xs ${DARK_SECONDARY_BUTTON}`}
+                            >
+                              Leave feedback
+                            </Button>
+                          ) : null}
                         </div>
+
+                        {expandedFeedbackSessionId === s.id && (
+                          <div className={`mt-3 space-y-3 ${DARK_BOX}`}>
+                            <div className="text-sm text-zinc-400">
+                              <div><span className="text-zinc-500">Mentor:</span> {s.mentor?.display_name || "Unknown mentor"}</div>
+                              <div><span className="text-zinc-500">Subject:</span> {s.subject || "Not specified"}</div>
+                              <div><span className="text-zinc-500">Time slot:</span> {s.requested_time || "Not selected"}</div>
+                            </div>
+
+                            <div>
+                              <div className="text-sm font-medium text-white">How was your session?</div>
+                              <div className="mt-2 flex gap-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button key={star} type="button" onClick={() => setFeedbackRating(star)}>
+                                    <Star
+                                      size={24}
+                                      className={star <= (feedbackRating ?? 0) ? "text-yellow-400" : "text-zinc-600"}
+                                      fill={star <= (feedbackRating ?? 0) ? "currentColor" : "none"}
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-sm font-medium text-white">What stood out?</div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {STUDENT_FEEDBACK_TAGS.map((tag) => (
+                                  <button
+                                    key={tag}
+                                    type="button"
+                                    onClick={() => toggleFeedbackTag(tag)}
+                                    className={`rounded-full border px-3 py-1 text-xs ${
+                                      feedbackTags.includes(tag) ? "border-indigo-500 bg-indigo-600 text-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
+                                    }`}
+                                  >
+                                    {tag}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <textarea
+                                value={feedbackComment}
+                                onChange={(e) => setFeedbackComment(e.target.value.slice(0, 200))}
+                                placeholder="One or two lines your mentor can learn from..."
+                                rows={3}
+                                className="w-full rounded border border-zinc-700 bg-zinc-800 p-2 text-sm text-white placeholder:text-zinc-500"
+                              />
+                              <div className="mt-1 text-right text-xs text-zinc-500">{feedbackComment.length} / 200</div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button onClick={() => handleSubmitFeedback(s.id)} disabled={!feedbackRating || submittingFeedback}>
+                                {submittingFeedback ? "Submitting..." : "Submit rating"}
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => setExpandedFeedbackSessionId(null)}
+                                className={DARK_SECONDARY_BUTTON}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}

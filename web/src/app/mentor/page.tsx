@@ -18,6 +18,50 @@ const NAV_ITEMS: { key: Section; label: string }[] = [
 const DARK_CARD = "!bg-zinc-900 !border-zinc-800 !text-white";
 const DARK_SECONDARY_BUTTON = "!border-zinc-700 !text-white hover:!bg-zinc-800";
 
+const MENTOR_FEEDBACK_TAGS = ["Came prepared", "Engaged", "Asked good questions", "Respectful", "Would mentor again"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function getSessionEndTime(requestedTime: string | null): Date | null {
+  if (!requestedTime) return null;
+
+  const match = requestedTime.match(/^\w+ (\d{1,2}) (\w{3}), (\d{1,2}):(\d{2})–(\d{1,2}):(\d{2}) (AM|PM)$/);
+  if (!match) return null;
+
+  const [, dayStr, monthStr, , , endHStr, endMStr, ampm] = match;
+  const monthIndex = MONTH_NAMES.indexOf(monthStr);
+  if (monthIndex === -1) return null;
+
+  const day = parseInt(dayStr, 10);
+  let endHour = parseInt(endHStr, 10);
+  const endMinute = parseInt(endMStr, 10);
+
+  if (ampm === "AM") {
+    if (endHour === 12) endHour = 0;
+  } else if (endHour !== 12) {
+    endHour += 12;
+  }
+
+  const now = new Date();
+  let year = now.getFullYear();
+  // MYT is UTC+8, so local hour - 8 gives the UTC hour.
+  let endUtc = new Date(Date.UTC(year, monthIndex, day, endHour - 8, endMinute));
+
+  const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+  if (endUtc.getTime() < now.getTime() - threeDaysMs) {
+    year += 1;
+    endUtc = new Date(Date.UTC(year, monthIndex, day, endHour - 8, endMinute));
+  }
+
+  if (isNaN(endUtc.getTime())) return null;
+  return endUtc;
+}
+
+function isSessionOver(requestedTime: string | null): boolean {
+  const end = getSessionEndTime(requestedTime);
+  if (!end) return true;
+  return Date.now() >= end.getTime();
+}
+
 function formatRelativeTime(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diffMs / 60000);
@@ -81,12 +125,50 @@ export default function MentorDashboard() {
     }
   }
   async function handleCompleteSession(sessionId: string) {
-    await supabase
+    const { error } = await supabase
       .from("sessions")
       .update({ status: "completed" })
       .eq("id", sessionId);
 
-    window.location.reload();
+    if (error) {
+      console.error("complete session error", error);
+      return;
+    }
+
+    setExpandedFeedbackSessionId(sessionId);
+    setFeedbackRating(null);
+    setFeedbackTags([]);
+    setFeedbackComment("");
+  }
+
+  function toggleFeedbackTag(tag: string) {
+    setFeedbackTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
+
+  async function handleSubmitStudentFeedback(sessionId: string) {
+    if (!feedbackRating) return;
+
+    setSubmittingFeedback(true);
+    try {
+      const { error } = await supabase
+        .from("sessions")
+        .update({
+          mentor_rating_of_student: feedbackRating,
+          mentor_tags: feedbackTags,
+          mentor_feedback_of_student: feedbackComment.trim() || null,
+        })
+        .eq("id", sessionId);
+
+      if (error) {
+        console.error("submit student feedback error", error);
+        return;
+      }
+
+      setExpandedFeedbackSessionId(null);
+      window.location.reload();
+    } finally {
+      setSubmittingFeedback(false);
+    }
   }
 
   async function handleSave() {
@@ -124,6 +206,11 @@ export default function MentorDashboard() {
   const [studentFeedback, setStudentFeedback] = useState<{ rating: number; feedback: string | null }[]>([]);
   const [loadingStudentFeedback, setLoadingStudentFeedback] = useState(false);
   const [rescheduleClickedIds, setRescheduleClickedIds] = useState<string[]>([]);
+  const [expandedFeedbackSessionId, setExpandedFeedbackSessionId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [feedbackTags, setFeedbackTags] = useState<string[]>([]);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   async function loadSessionRequests(mentorId: string) {
     const { data: sessionRequests } = await supabase
@@ -416,18 +503,88 @@ export default function MentorDashboard() {
                           <div><span className="text-zinc-500">Time slot:</span> {request.requested_time || "Not selected"}</div>
                           <div><span className="text-zinc-500">Meeting type:</span> {formatMeetingType(request.meeting_type)}</div>
                         </div>
-                        <div className="mt-2 flex gap-2">
-                          <Button onClick={() => handleCompleteSession(request.id)} className="!px-3 !py-1 !text-xs">Mark complete</Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => setRescheduleClickedIds((prev) => [...prev, request.id])}
-                            className={`!px-3 !py-1 !text-xs ${DARK_SECONDARY_BUTTON}`}
-                          >
-                            Reschedule
-                          </Button>
-                        </div>
-                        {rescheduleClickedIds.includes(request.id) && (
-                          <p className="mt-2 text-xs text-zinc-500">Reschedule coming soon</p>
+
+                        {expandedFeedbackSessionId === request.id ? (
+                          <div className="mt-3 space-y-3 rounded border border-zinc-800 bg-zinc-800 p-3">
+                            <div className="text-sm text-zinc-400">
+                              <div><span className="text-zinc-500">Student:</span> {request.student?.display_name || "Unnamed student"}</div>
+                              <div><span className="text-zinc-500">Subject:</span> {request.subject || "Not specified"}</div>
+                              <div><span className="text-zinc-500">Time slot:</span> {request.requested_time || "Not selected"}</div>
+                            </div>
+
+                            <div>
+                              <div className="text-sm font-medium text-white">How was this student?</div>
+                              <div className="mt-2 flex gap-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button key={star} type="button" onClick={() => setFeedbackRating(star)}>
+                                    <Star
+                                      size={24}
+                                      className={star <= (feedbackRating ?? 0) ? "text-yellow-400" : "text-zinc-600"}
+                                      fill={star <= (feedbackRating ?? 0) ? "currentColor" : "none"}
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-sm font-medium text-white">What stood out?</div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {MENTOR_FEEDBACK_TAGS.map((tag) => (
+                                  <button
+                                    key={tag}
+                                    type="button"
+                                    onClick={() => toggleFeedbackTag(tag)}
+                                    className={`rounded-full border px-3 py-1 text-xs ${
+                                      feedbackTags.includes(tag) ? "border-indigo-500 bg-indigo-600 text-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
+                                    }`}
+                                  >
+                                    {tag}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <textarea
+                                value={feedbackComment}
+                                onChange={(e) => setFeedbackComment(e.target.value.slice(0, 200))}
+                                placeholder="One or two lines about this student..."
+                                rows={3}
+                                className="w-full rounded border border-zinc-700 bg-zinc-800 p-2 text-sm text-white placeholder:text-zinc-500"
+                              />
+                              <div className="mt-1 text-right text-xs text-zinc-500">{feedbackComment.length} / 200</div>
+                            </div>
+
+                            <Button onClick={() => handleSubmitStudentFeedback(request.id)} disabled={!feedbackRating || submittingFeedback}>
+                              {submittingFeedback ? "Submitting..." : "Submit"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="mt-2 flex items-center gap-2">
+                              <Button
+                                onClick={() => handleCompleteSession(request.id)}
+                                disabled={!isSessionOver(request.requested_time)}
+                                className="!px-3 !py-1 !text-xs"
+                              >
+                                Mark complete
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => setRescheduleClickedIds((prev) => [...prev, request.id])}
+                                className={`!px-3 !py-1 !text-xs ${DARK_SECONDARY_BUTTON}`}
+                              >
+                                Reschedule
+                              </Button>
+                            </div>
+                            {!isSessionOver(request.requested_time) && (
+                              <p className="mt-1 text-xs text-zinc-500">Available after the session ends</p>
+                            )}
+                            {rescheduleClickedIds.includes(request.id) && (
+                              <p className="mt-2 text-xs text-zinc-500">Reschedule coming soon</p>
+                            )}
+                          </>
                         )}
                       </div>
                     ))
