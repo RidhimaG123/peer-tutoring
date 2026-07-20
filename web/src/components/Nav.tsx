@@ -55,7 +55,8 @@ export default function Nav() {
   if (
     pathname === "/" || pathname === "/auth" || pathname === "/onboarding" ||
     pathname === "/student" || pathname.startsWith("/student/") ||
-    pathname === "/mentor" || pathname.startsWith("/mentor/")
+    pathname === "/mentor" || pathname.startsWith("/mentor/") ||
+    pathname === "/admin" || pathname.startsWith("/admin/")
   ) {
     return null;
   }

@@ -53,19 +53,19 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-zinc-50 text-zinc-900">
+    <main className="min-h-dvh bg-[#0a0a0a] text-white">
       <div className="mx-auto max-w-md px-4 py-10">
-        <Card>
+        <Card className="!bg-zinc-900 !border-zinc-800 !text-white">
           <div className="text-lg font-semibold">Welcome, Admin</div>
-          <p className="mt-1 text-sm text-zinc-600">
+          <p className="mt-1 text-sm text-zinc-400">
             Sign in to access the admin dashboard.
           </p>
 
           <form className="mt-4 space-y-3" onSubmit={signIn}>
             <label className="block">
-              <div className="text-xs font-medium text-zinc-700">Email</div>
+              <div className="text-xs font-medium text-zinc-300">Email</div>
               <input
-                className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-xl border bg-zinc-950 border-zinc-700 text-white placeholder-zinc-500 px-3 py-2 text-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
@@ -75,9 +75,9 @@ export default function AdminLoginPage() {
             </label>
 
             <label className="block">
-              <div className="text-xs font-medium text-zinc-700">Password</div>
+              <div className="text-xs font-medium text-zinc-300">Password</div>
               <input
-                className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-xl border bg-zinc-950 border-zinc-700 text-white placeholder-zinc-500 px-3 py-2 text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
@@ -90,7 +90,7 @@ export default function AdminLoginPage() {
               Sign in
             </Button>
 
-            <div className="pt-2 text-xs text-zinc-600">{status}</div>
+            <div className="pt-2 text-xs text-zinc-400">{status}</div>
           </form>
         </Card>
       </div>
