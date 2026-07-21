@@ -279,7 +279,7 @@ export default function StudentDashboard() {
     if (!studentSubjects || studentSubjects.length === 0) return;
 
     const { data: mentorMatches } = await supabase
-      .from("profiles")
+      .from("profiles_public")
       .select("id, subjects")
       .eq("role", "mentor");
 
@@ -425,7 +425,7 @@ export default function StudentDashboard() {
 
 
         const { data: mentorsData } = await supabase
-          .from("profiles")
+          .from("profiles_public")
           .select("id, display_name, headline, bio, subjects, grade")
           .eq("role", "mentor")
           .order("created_at", { ascending: false });

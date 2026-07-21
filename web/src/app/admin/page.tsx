@@ -145,8 +145,8 @@ export default function AdminDashboard() {
       { count: totalSessionsCount },
       { count: completedSessionsCount },
     ] = await Promise.all([
-      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "student"),
-      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "mentor"),
+      supabase.from("profiles_public").select("*", { count: "exact", head: true }).eq("role", "student"),
+      supabase.from("profiles_public").select("*", { count: "exact", head: true }).eq("role", "mentor"),
       supabase.from("sessions").select("*", { count: "exact", head: true }),
       supabase.from("sessions").select("*", { count: "exact", head: true }).eq("status", "completed"),
     ]);
@@ -182,12 +182,12 @@ export default function AdminDashboard() {
     setSessionsPerDay(dayBuckets.map((b) => ({ day: b.label, sessions: b.sessions })));
 
     const { data: studentSubjectsData } = await supabase
-      .from("profiles")
+      .from("profiles_public")
       .select("subjects")
       .eq("role", "student");
 
     const { data: mentorSubjectsData } = await supabase
-      .from("profiles")
+      .from("profiles_public")
       .select("subjects")
       .eq("role", "mentor");
 
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
     );
 
     const { data: mentorProfiles } = await supabase
-      .from("profiles")
+      .from("profiles_public")
       .select("id, display_name, grade")
       .eq("role", "mentor");
 
@@ -246,12 +246,17 @@ export default function AdminDashboard() {
     );
   }
 
-  async function loadUsers() {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, display_name, role, grade, email, created_at")
-      .order("created_at", { ascending: false });
+  async function loadUsers(accessToken: string) {
+    const res = await fetch("/api/admin/users", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
+    if (!res.ok) {
+      setUsers([]);
+      return;
+    }
+
+    const { users: data } = await res.json();
     setUsers(data ?? []);
   }
 
@@ -296,7 +301,7 @@ export default function AdminDashboard() {
     setSendingNotification(true);
     setNotificationStatus("");
     try {
-      let recipientQuery = supabase.from("profiles").select("id");
+      let recipientQuery = supabase.from("profiles_public").select("id");
       if (notificationTarget === "students") {
         recipientQuery = recipientQuery.eq("role", "student");
       } else if (notificationTarget === "mentors") {
@@ -355,7 +360,7 @@ export default function AdminDashboard() {
           return;
         }
 
-        await Promise.all([loadOverviewData(), loadUsers(), loadSessions(), loadNotifications()]);
+        await Promise.all([loadOverviewData(), loadUsers(session.access_token), loadSessions(), loadNotifications()]);
 
         setLoading(false);
       } catch (err) {
