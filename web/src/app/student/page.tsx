@@ -203,7 +203,10 @@ export default function StudentDashboard() {
         if (studentEmail) {
           await fetch("/api/send-confirmation", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
             body: JSON.stringify({ studentEmail, studentName, mentorId, slot }),
           });
         }
