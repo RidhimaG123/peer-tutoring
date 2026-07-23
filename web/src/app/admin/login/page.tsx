@@ -6,8 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
 
-const ADMIN_EMAIL = "ridhimag2009@gmail.com";
-
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -28,22 +26,19 @@ export default function AdminLoginPage() {
       return;
     }
 
-    const signedInEmail = data.session?.user?.email;
-    const userId = data.session?.user?.id;
+    const accessToken = data.session?.access_token;
 
-    if (!userId || signedInEmail !== ADMIN_EMAIL) {
+    if (!accessToken) {
       await supabase.auth.signOut();
       setStatus("Access denied.");
       return;
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
+    const res = await fetch("/api/admin/verify", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
-    if (profile?.role !== "admin") {
+    if (!res.ok) {
       await supabase.auth.signOut();
       setStatus("Access denied.");
       return;
